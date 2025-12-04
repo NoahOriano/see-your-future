@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import "/src/styles/RoundOneForm.css";
 
 interface FormDataState {
   selfie: File | null;
@@ -92,8 +93,8 @@ export default function RoundOneForm(): JSX.Element {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 flex justify-center py-10">
-      <form onSubmit={handleSubmit} className="w-full max-w-2xl bg-white p-8 rounded-xl shadow">
+    <div className="round1-wrapper">
+    <form onSubmit={handleSubmit} className="round1-form">
         <h1 className="text-3xl font-bold mb-6">Round 1: Baseline Intake</h1>
 
         <label className="block mb-4">
