@@ -106,7 +106,7 @@ function scorePrebuiltQuestion(
 
   for (const [cat, rating] of Object.entries(ratings)) {
     const interest = interests[cat] ?? 0;
-    score += rating * interest;
+    score += (rating ?? 0) * interest;
   }
 
   return score;
