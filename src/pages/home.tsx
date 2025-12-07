@@ -77,7 +77,7 @@ function extractInterestsFromRound1(
 
   const geminiConfig: ChatHandlerConfig = {
     apiKey: import.meta.env.VITE_GEMINI_API_KEY, // make sure this is set
-    modelName: "gemini-pro",
+    modelName: "gemini-2.5-flash",
     systemInstruction:
       "You are an assistant that infers plausible, grounded narratives about a person's future " +
       "based only on their self-reported answers to life questions. You never make supernatural or " +
