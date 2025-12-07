@@ -1,0 +1,22 @@
+[
+  {
+    "id": "age",
+    "roundNumber": 1,
+    "prompt": "How old are you?",
+    "type": "text"
+  },
+  {
+    "id": "primary_goal",
+    "roundNumber": 1,
+    "prompt": "What is your primary life goal over the next 10 years?",
+    "type": "text"
+  },
+  {
+    "id": "risk_tolerance",
+    "roundNumber": 1,
+    "prompt": "How would you describe your risk tolerance?",
+    "type": "select",
+    "options": ["Low", "Moderate", "High"],
+    "category": "personal"
+  }
+]

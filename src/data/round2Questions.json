@@ -1,0 +1,17 @@
+[
+  {
+    "id": "career_direction",
+    "roundNumber": 2,
+    "prompt": "Which career direction are you most drawn to?",
+    "type": "select",
+    "category": "career",
+    "options": ["Technical", "Creative", "Leadership", "Independent"]
+  },
+  {
+    "id": "health_habits",
+    "roundNumber": 2,
+    "prompt": "Describe your current health habits (sleep, exercise, nutrition).",
+    "type": "text",
+    "category": "health"
+  }
+]
