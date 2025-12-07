@@ -1,0 +1,130 @@
+[
+  {
+    "id": "career_growth",
+    "prompt": "How important is long-term growth and advancement in your work or career?",
+    "type": "text",
+    "category": "career",
+    "ageMin": 18,
+    "ageMax": 70,
+    "categoryRatings": {
+      "career": 5
+    }
+  },
+  {
+    "id": "career_stability",
+    "prompt": "How do you feel about stability versus change in your professional life?",
+    "type": "text",
+    "category": "career",
+    "ageMin": 18,
+    "ageMax": 70,
+    "categoryRatings": {
+      "career": 4,
+      "finance": 2
+    }
+  },
+  {
+    "id": "education_plans",
+    "prompt": "Are you considering any major education or training decisions in the next few years?",
+    "type": "text",
+    "category": "career",
+    "ageMin": 14,
+    "ageMax": 40,
+    "categoryRatings": {
+      "career": 4,
+      "personal": 2
+    }
+  },
+  {
+    "id": "health_routine",
+    "prompt": "Describe your current routine for sleep, exercise, and nutrition.",
+    "type": "text",
+    "category": "health",
+    "ageMin": 15,
+    "ageMax": 90,
+    "categoryRatings": {
+      "health": 5
+    }
+  },
+  {
+    "id": "health_risk",
+    "prompt": "Do you have any ongoing health risks or habits you worry about over the long term?",
+    "type": "text",
+    "category": "health",
+    "ageMin": 18,
+    "ageMax": 90,
+    "categoryRatings": {
+      "health": 4,
+      "personal": 1
+    }
+  },
+  {
+    "id": "finance_savings",
+    "prompt": "What is your approach to saving, investing, or preparing for financial surprises?",
+    "type": "text",
+    "category": "finance",
+    "ageMin": 18,
+    "ageMax": 80,
+    "categoryRatings": {
+      "finance": 5
+    }
+  },
+  {
+    "id": "finance_risk",
+    "prompt": "How comfortable are you with financial risk in pursuit of bigger opportunities?",
+    "type": "text",
+    "category": "finance",
+    "ageMin": 18,
+    "ageMax": 80,
+    "categoryRatings": {
+      "finance": 4,
+      "career": 2
+    }
+  },
+  {
+    "id": "relationships_support",
+    "prompt": "How strong and reliable do you feel your current support network is?",
+    "type": "text",
+    "category": "relationships",
+    "ageMin": 14,
+    "ageMax": 90,
+    "categoryRatings": {
+      "relationships": 5
+    }
+  },
+  {
+    "id": "relationships_priority",
+    "prompt": "How much priority do you place on close relationships versus independence?",
+    "type": "text",
+    "category": "relationships",
+    "ageMin": 16,
+    "ageMax": 90,
+    "categoryRatings": {
+      "relationships": 4,
+      "personal": 2
+    }
+  },
+  {
+    "id": "personal_growth",
+    "prompt": "In what areas of your life are you most focused on personal growth right now?",
+    "type": "text",
+    "category": "personal",
+    "ageMin": 14,
+    "ageMax": 90,
+    "categoryRatings": {
+      "personal": 5
+    }
+  },
+  {
+    "id": "long_term_dreams",
+    "prompt": "Describe one long-term dream that feels both exciting and slightly intimidating.",
+    "type": "text",
+    "category": "personal",
+    "ageMin": 14,
+    "ageMax": 90,
+    "categoryRatings": {
+      "personal": 4,
+      "career": 2,
+      "relationships": 1
+    }
+  }
+]
