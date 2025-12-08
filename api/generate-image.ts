@@ -2,95 +2,215 @@
 // Vercel-style serverless function that proxies image generation requests to
 // an external image API using a server-only environment variable.
 //
-// To use: set the environment variable IMAGE_API_KEY (OpenAI) or configure
-// IMAGE_PROVIDER to 'google' and provide a Google image key. Do NOT commit
-// secrets to the repository. The function expects a POST JSON body: { prompt: string }.
+// Request body shape (JSON):
+// {
+//   prompt: string;                 // future description text
+//   imageDescription?: string | null; // optional text description of the uploaded image
+//   imageBase64?: string | null;    // optional base64-encoded reference image
+//   imageMimeType?: string | null;  // mime type of the reference image
+// }
+//
+// Pipeline:
+// 1) Use the future description + optional imageDescription to build an
+//    instruction prompt via generateImagePrompt.
+// 2) (Intermediate text generation) Use Gemini (if configured) to turn that
+//    into a short, vivid image-generation prompt.
+// 3) Pass ONLY that short prompt, plus the optional reference image, to the
+//    actual image provider (OpenAI Images API or Gemini multimodal when
+//    IMAGE_PROVIDER=google).
 
-// No direct dependency on Vercel types here so the file remains usable in
-// different serverless environments. The handler expects the standard
-// (req, res) signature.
+// Use Gemini server-side SDK for image generation when provider=google so we can
+// feed both the future description and the reference image as inline data.
+import { GoogleGenerativeAI } from "@google/generative-ai";
+// Import server-side image prompt helper so we can build an instruction
+// prompt for the intermediate text generation step.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { generateImagePrompt } from "./prompts.js";
+// Use the server-side Gemini chat handler for the intermediate text-to-text
+// step that produces a short image prompt from the future description.
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { GeminiChatHandler } from "./geminiChatHandler.js";
+
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
 
-  const { prompt } = req.body ?? {};
+  const { prompt, imageDescription, imageBase64, imageMimeType } = req.body ?? {};
   if (!prompt || typeof prompt !== "string") {
     res.status(400).json({ error: "Missing 'prompt' in request body" });
     return;
   }
 
-  // Accept several env var names to make configuring providers easier
-  const key = process.env.IMAGE_API_KEY || process.env.OPENAI_API_KEY || process.env.GENERATIVE_IMAGE_API_KEY;
-  const provider = (process.env.IMAGE_PROVIDER || (process.env.IMAGE_API_KEY ? "openai" : process.env.GEMINI_API_KEY ? "google" : "openai")).toLowerCase();
+  // ---- 1) Build instruction prompt for image-prompt generation ----
+
+  const referenceDescription =
+    typeof imageDescription === "string" && imageDescription.trim().length > 0
+      ? imageDescription.trim()
+      : "(no separate image description provided)";
+
+  const combinedDescription =
+    "The subject of this image is the same person as in the following reference photo description.\n\n" +
+    "Reference photo description (who the person is and what they look like):\n" +
+    referenceDescription +
+    "\n\n" +
+    "Now depict this same person inside the following realistic future life scenario. " +
+    "The person in the image must clearly be the same individual in age, body type, skin tone, hair, and general style, " +
+    "but shown within this future: \n" +
+    prompt;
+
+  // This is the instruction we give to Gemini to ask for a short image prompt.
+  const imagePromptInstruction = generateImagePrompt(combinedDescription);
+
+  // ---- 2) Intermediate text generation: future -> short image prompt ----
+
+  let finalPrompt: string = imagePromptInstruction;
+  const geminiTextKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+
+  if (geminiTextKey) {
+    try {
+      const chat = new GeminiChatHandler({
+        apiKey: geminiTextKey,
+        modelName: "gemini-2.5-flash",
+      });
+      // Ask Gemini to return just the short image prompt text.
+      finalPrompt = await chat.sendMessage(imagePromptInstruction);
+    } catch (e: any) {
+      // Fall back to the instruction itself if prompt generation fails.
+      // eslint-disable-next-line no-console
+      console.error("Gemini image-prompt generation failed:", e);
+      finalPrompt = imagePromptInstruction;
+    }
+  }
+
+  // Keep the final text we send to the image provider bounded so we don't
+  // exceed limits like OpenAI's ~1000-char `prompt` max. This finalPrompt is
+  // the ONLY text we send to the image model: it combines a concise
+  // image-focused description plus a few instructions, not the entire chat
+  // history.
+  const MAX_PROMPT_LEN = 900;
+  if (finalPrompt.length > MAX_PROMPT_LEN) {
+    finalPrompt = finalPrompt.slice(0, MAX_PROMPT_LEN);
+  }
+
+  // ---- 3) Call the configured image provider with finalPrompt (+ image) ----
+
+  const key =
+    process.env.IMAGE_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    process.env.GENERATIVE_IMAGE_API_KEY;
+  const provider = (
+    process.env.IMAGE_PROVIDER ||
+    (process.env.IMAGE_API_KEY
+      ? "openai"
+      : process.env.GEMINI_API_KEY
+      ? "google"
+      : "openai")
+  ).toLowerCase();
 
   if (!key) {
-    res.status(501).json({ error: "Server not configured for external image generation (missing IMAGE_API_KEY or equivalent)" });
+    res
+      .status(501)
+      .json({
+        error:
+          "Server not configured for external image generation (missing IMAGE_API_KEY or equivalent)",
+      });
     return;
   }
 
-  // Currently the code supports OpenAI-style image endpoints out of the box.
   // If you want to use Google/Gemini image generation, set IMAGE_PROVIDER=google
-  // and implement the provider call here (or ask me to implement it for you).
+  // and we will call Gemini's multimodal model with both the short image prompt
+  // and the uploaded reference image as inline data.
   if (provider === "google") {
-    // Try to use the installed @google/generative-ai SDK if present.
+    const geminiImageKey =
+      process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || key;
+    if (!geminiImageKey) {
+      res.status(501).json({
+        error:
+          "Server not configured for Gemini image generation (missing GEMINI_API_KEY/GOOGLE_API_KEY)",
+      });
+      return;
+    }
+
     try {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { GoogleGenerativeAI } = require("@google/generative-ai");
-      const g = new GoogleGenerativeAI(key);
+      const genAI = new GoogleGenerativeAI(geminiImageKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-2.0-flash-exp",
+        generationConfig: {
+          // Ask Gemini to return an actual image, not text
+          responseMimeType: "image/jpeg",
+        },
+      });
 
-      // The SDK surface can change between versions; try several common entry points.
-      let rawResp: any = null;
+      const parts: Array<{
+        text?: string;
+        inlineData?: { mimeType: string; data: string };
+      }> = [{ text: finalPrompt }];
 
-      // 1) Modern SDK might expose images.generate
-      if (g.images && typeof g.images.generate === "function") {
-        rawResp = await g.images.generate({ prompt, size: "1024x1024", n: 1 });
+      if (imageBase64 && imageMimeType) {
+        const base64Data = imageBase64.includes(",")
+          ? imageBase64.split(",")[1]
+          : imageBase64;
+
+        parts.push({
+          inlineData: {
+            mimeType: imageMimeType,
+            data: base64Data,
+          },
+        });
       }
 
-      // 2) Older/newer variants might have generateImage
-      if (!rawResp && typeof g.generateImage === "function") {
-        rawResp = await g.generateImage({ prompt, size: "1024x1024", n: 1 });
+      const result = await (model as any).generateContent({
+        contents: [{ role: "user", parts }],
+      } as any);
+
+      const response = result.response as any;
+      const candidates = response?.candidates;
+
+      if (!candidates || !candidates.length) {
+        return res
+          .status(500)
+          .json({ error: "Gemini did not return any candidates for image generation" });
       }
 
-      // 3) Some SDKs return a model object to call
-      if (!rawResp && typeof g.getImage === "function") {
-        rawResp = await g.getImage({ prompt, size: "1024x1024" });
+      const contentParts = (candidates[0].content?.parts ?? []) as any[];
+
+      for (const part of contentParts) {
+        if (
+          part.inlineData &&
+          typeof part.inlineData.mimeType === "string" &&
+          part.inlineData.mimeType.startsWith("image") &&
+          typeof part.inlineData.data === "string"
+        ) {
+          const mime = part.inlineData.mimeType || "image/jpeg";
+          const data = part.inlineData.data;
+          return res.status(200).json({ url: `data:${mime};base64,${data}` });
+        }
       }
 
-      if (!rawResp) {
-        return res.status(501).json({ error: "Unable to call Google image API using the installed SDK: no compatible method found. Please set IMAGE_PROVIDER=openai and provide an OpenAI-compatible IMAGE_API_KEY, or ask me to implement a provider-specific call for your SDK version." });
-      }
-
-      // Try to extract URL or base64 data from common response shapes
-      // Common fields attempt
-      const url = rawResp?.data?.[0]?.url ?? rawResp?.data?.[0]?.b64_json ?? rawResp?.images?.[0]?.url ?? rawResp?.images?.[0]?.b64_json ?? rawResp?.output?.[0]?.image ?? null;
-
-      if (!url) {
-        // Fallback: return the raw SDK response for debugging
-        return res.status(200).json({ raw: rawResp });
-      }
-
-      if (typeof url === "string" && /^[A-Za-z0-9+/=\n]+$/.test(url)) {
-        return res.status(200).json({ url: `data:image/png;base64,${url}` });
-      }
-
-      return res.status(200).json({ url });
+      return res
+        .status(500)
+        .json({ error: "No image part found in Gemini response" });
     } catch (e: any) {
-      console.error("Google image generation failed:", e);
+      console.error("Gemini image generation failed:", e);
       return res.status(500).json({ error: e?.message ?? String(e) });
     }
   }
 
+  // Default: call OpenAI Images API (keep backward compatibility) using the
+  // short, intermediate-generated image prompt. We DO NOT send the full chat
+  // history or future transcript here, only the concise image-focused prompt.
   try {
-    // Default: call OpenAI Images API (keep backward compatibility).
     const resp = await fetch("https://api.openai.com/v1/images/generations", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${key}`,
       },
-      body: JSON.stringify({ prompt, n: 1, size: "1024x1024" }),
+      body: JSON.stringify({ prompt: finalPrompt, n: 1, size: "1024x1024" }),
     });
 
     if (!resp.ok) {

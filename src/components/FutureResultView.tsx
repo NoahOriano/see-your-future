@@ -1,33 +1,80 @@
 // src/components/FutureResultView.tsx
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FutureResult } from "../types/future";
 import { generateImageFromFuture } from "../lib/imageGeneratorHandler";
+import { generateTTS } from "../lib/textToVoiceHandler";
 
 interface FutureResultViewProps {
   result: FutureResult | null;
   onReset?: () => void;
+  imageBase64: string | null;
+  imageMimeType: string | null;
 }
 
 export const FutureResultView: React.FC<FutureResultViewProps> = ({
   result,
   onReset,
+  imageBase64,
+  imageMimeType,
 }) => {
-  if (!result) return null;
-
-  const { description, qualityScore, qualityLabel } = result;
-
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imgLoading, setImgLoading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
+
+  const [ttsBase64, setTtsBase64] = useState<string | null>(null);
+  const [ttsLoading, setTtsLoading] = useState(false);
+  const [ttsError, setTtsError] = useState<string | null>(null);
+
+  const description = result?.description ?? "";
+
+  useEffect(() => {
+    if (!description) return;
+
+    const generate = async () => {
+      setTtsLoading(true);
+      setTtsError(null);
+
+      try {
+        const audio = await generateTTS(description, "Rachel");
+        setTtsBase64(audio);
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setTtsError(err.message ?? "Failed to generate voice");
+        } else {
+          setTtsError("Failed to generate voice");
+        }
+      } finally {
+        setTtsLoading(false);
+      }
+    };
+
+    generate();
+  }, [description]);
+
+  if (!result) return null;
+
+  const { qualityScore, qualityLabel } = result;
 
   const handleGenerateImage = async () => {
     setImgError(null);
     setImgLoading(true);
     try {
-      const url = await generateImageFromFuture(description);
+      const url = await generateImageFromFuture(description, {
+        imageBase64,
+        imageMimeType,
+        // We don't have the textual image description here in the main app yet,
+        // but Dev/test flows (and future extensions) can pass it through so the
+        // backend can more precisely tie the subject to the future. For now,
+        // the server will still build a combined description from the future.
+        imageDescription: null,
+      });
       setImageUrl(url);
-    } catch (e: any) {
-      setImgError(e?.message ?? String(e));
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setImgError(e.message);
+      } else {
+        setImgError("An unknown error occurred");
+      }
     } finally {
       setImgLoading(false);
     }
@@ -49,11 +96,25 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
         {description}
       </div>
 
+      {/* --- TTS Section --- */}
+      <div style={{ marginTop: "1rem" }}>
+        {ttsLoading && <p>Generating voice...</p>}
+        {ttsError && <p style={{ color: "red" }}>TTS error: {ttsError}</p>}
+
+        {ttsBase64 && (
+          <audio controls>
+            <source
+              src={`data:audio/mpeg;base64,${ttsBase64}`}
+              type="audio/mpeg"
+            />
+          </audio>
+        )}
+      </div>
+
       <div
         style={{
           padding: "0.75rem 1rem",
           borderRadius: 8,
-          background: "#f8f9fa",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",

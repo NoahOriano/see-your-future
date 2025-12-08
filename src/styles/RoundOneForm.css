@@ -1,0 +1,229 @@
+/* Global reset + smoothness */
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  background: linear-gradient(135deg, #eef2f7, #f8f9fb);
+  font-family: "Inter", sans-serif;
+  color: #1a1a1a;
+}
+
+/* Form Container Overrides */
+form {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px !important;
+  padding: 2.5rem !important;
+  background: #ffffffaa;
+  backdrop-filter: blur(6px);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.05),
+    0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Title */
+form h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 2rem;
+}
+
+/* Label block */
+label span {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Textareas */
+textarea {
+  min-height: 110px;
+  resize: vertical;
+  border-radius: 10px !important;
+  border: 1px solid #d1d5db;
+  background: #fafafa;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  background: #ffffff;
+}
+
+/* File Inputs - Clean Design */
+input[type="file"] {
+  margin-top: 6px;
+  font-size: 0.9rem;
+  padding: 6px 0;
+}
+
+input[type="file"]::-webkit-file-upload-button {
+  background: #3b82f6;
+  color: white;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  margin-right: 8px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+input[type="file"]::-webkit-file-upload-button:hover {
+  background: #2563eb;
+}
+
+/* Submit button */
+button[type="submit"] {
+  width: 100%;
+  font-size: 1.1rem;
+  padding: 0.85rem 0;
+  border-radius: 12px !important;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  transition: background 0.25s, box-shadow 0.2s;
+}
+
+button[type="submit"]:hover {
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);
+}
+
+/* Responsive improvements */
+@media (max-width: 640px) {
+  form {
+    padding: 1.5rem !important;
+  }
+
+  form h1 {
+    font-size: 1.6rem;
+  }
+}
+
+/* ---------- FORM WRAPPER ---------- */
+
+.form-wrapper {
+  display: flex;
+  justify-content: center;
+  padding: 32px 0;
+}
+
+/* Override the white Tailwind card with your theme */
+.form-wrapper {
+  width: 100%;
+  max-width: 680px;
+  background: var(--card);
+  padding: 28px;
+  border-radius: var(--radius);
+  border: 1px solid var(--glass-2);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+/* Title */
+.form-wrapper h1 {
+  font-size: 22px;
+  margin-bottom: 22px;
+  font-weight: 700;
+  color: #f0f6ff;
+}
+
+/* ---------- LABELS ---------- */
+
+.form-wrapper label {
+  display: block;
+  margin-bottom: 20px;
+}
+
+.form-wrapper label span {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ---------- TEXTAREAS ---------- */
+
+.form-wrapper textarea {
+  width: 100%;
+  background: var(--glass);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  color: #e8eef7;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  transition: border 0.2s, box-shadow 0.2s, background 0.2s;
+  min-height: 110px;
+}
+
+.form-wrapper textarea::placeholder {
+  color: rgba(255, 255, 255, 0.18);
+}
+
+.form-wrapper textarea:focus {
+  outline: none;
+  border: 1px solid var(--accent);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.2);
+}
+
+/* ---------- FILE INPUTS ---------- */
+
+.form-wrapper input[type="file"] {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.form-wrapper input[type="file"]::-webkit-file-upload-button {
+  background: linear-gradient(180deg, var(--accent), #5bd1ff);
+  border: none;
+  padding: 7px 14px;
+  border-radius: 8px;
+  color: #04111a;
+  cursor: pointer;
+  margin-right: 10px;
+  font-weight: 600;
+  transition: opacity 0.2s, transform 0.15s;
+}
+
+.form-wrapper input[type="file"]::-webkit-file-upload-button:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* ---------- SUBMIT BUTTON ---------- */
+
+.form-wrapper button[type="submit"] {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 0;
+  font-size: 15px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(180deg, var(--accent), #5bd1ff);
+  color: #04111a;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 30px rgba(124, 92, 255, 0.22);
+  transition: box-shadow 0.25s, transform 0.15s;
+}
+
+.form-wrapper button[type="submit"]:hover {
+  box-shadow: 0 12px 36px rgba(124, 92, 255, 0.30);
+  transform: translateY(-2px);
+}
+
+/* ---------- RESPONSIVE ---------- */
+
+@media (max-width: 600px) {
+  .round1-form {
+    padding: 20px;
+  }
+
+  .round1-form h1 {
+    font-size: 20px;
+  }
+}
