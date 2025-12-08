@@ -33,8 +33,8 @@ ${transcript}
 }
 
 export function generateImagePrompt(futureDescription: string): string {
-  return `\
-Based on the following description of someone's future, generate a short, vivid, and descriptive prompt for an image generation model.
-The prompt should capture the essence of the future described. Keep it realistic and grounded.
-\n\n${futureDescription}\n`;
+  return `You are an expert visual prompt writer for a realistic photographic image model.\n\n\
+Given the following description of someone's life and future context, write a SINGLE, concise English prompt (no more than 1–2 short sentences) that a text-to-image model can use to render a realistic scene.\n\n\
+Requirements:\n- Focus on how the person looks (age, gender presentation, clothing, expression, posture) and their immediate environment.\n- Make it clear what the person is doing in the scene and what setting they are in.\n- Prefer concrete visual details over abstract concepts or metaphors.\n- Do NOT mention questionnaires, descriptions, prompts, "future", or anything about how this text was generated.\n- Do NOT include quotation marks or any extra commentary – just the prompt itself.\n\n\
+DESCRIPTION:\n${futureDescription}\n`;
 }
