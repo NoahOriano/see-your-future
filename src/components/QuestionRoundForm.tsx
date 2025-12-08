@@ -20,6 +20,9 @@ export const QuestionRoundForm: React.FC<QuestionRoundFormProps> = ({
     (q) => (q.answer ?? "").trim().length > 0
   );
 
+  const isFreeformRound =
+    round.questions.length === 1 && round.questions[0].type === "freeform";
+
   return (
     <div>
       <h2 style={{ marginBottom: "0.25rem" }}>{round.label}</h2>
@@ -27,13 +30,25 @@ export const QuestionRoundForm: React.FC<QuestionRoundFormProps> = ({
         Round {round.roundNumber} • Source: {round.source}
       </p>
 
-      {round.questions.map((q) => (
-        <QuestionField
-          key={q.id}
-          question={q}
-          onChangeAnswer={onChangeAnswer}
+      {isFreeformRound ? (
+        <textarea
+          value={round.questions[0].answer ?? round.questions[0].prompt}
+          onChange={(e) =>
+            onChangeAnswer(round.questions[0].id, e.target.value)
+          }
+          rows={10}
+          style={{ width: "100%", padding: "0.5rem", resize: "vertical" }}
+          disabled={disabled}
         />
-      ))}
+      ) : (
+        round.questions.map((q) => (
+          <QuestionField
+            key={q.id}
+            question={q}
+            onChangeAnswer={onChangeAnswer}
+          />
+        ))
+      )}
 
       <button
         type="button"

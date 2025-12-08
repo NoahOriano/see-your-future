@@ -13,13 +13,17 @@ Here is the questionnaire data:\n\n${transcript}\n`;
 
 /**
  * Prompt that asks the LLM to generate a set of follow-up questions for the
- * requested round number. The model should return a JSON array of question
- * objects with fields: id, prompt, type, category (optional), options (optional array).
+ * requested round number. The model should return a simple text response with a few questions.
  */
 export function generateRoundQuestionsPrompt(
   transcript: string,
   requestedRoundNumber: number
 ): string {
   return `\
-You are tasked with generating a concise set (3-6) of follow-up questions for Round ${requestedRoundNumber} based only on the following questionnaire transcript:\n\n${transcript}\n\nConstraints and guidance:\n1) DO NOT repeat questions that already appeared in the transcript. If a topic was already asked, produce a deeper follow-up that adds specificity or clarifies barriers, motivations, or concrete next steps.\n2) Produce varied question types (text, select, slider) when appropriate.\n3) Keep prompts concise (one sentence).\n4) Avoid generic template questions like \"How strong is your support network?\" unless the transcript strongly indicates relationships are central; prefer focused phrasing tied to user's answers.\n5) Return ONLY a JSON array of question objects (no surrounding text). Each object must include:\n   - id: a short machine-friendly id (no spaces)\n   - prompt: the question text to ask the user\n   - type: one of \"text\", \"select\", \"slider\"\n   - category: optional category like \"career\", \"health\", \"relationships\", \"finance\", \"personal\"\n   - options: optional array of strings when type is \"select\"\n\nExample output:\n[\n  {"id":"next_step","prompt":"What small, concrete step could you take in the next month to move toward this goal?","type":"text","category":"personal"},\n  {"id":"confidence","prompt":"How confident are you about taking that step?","type":"select","options":["Low","Medium","High"],"category":"personal"}\n]\n\nBe creative but grounded in the transcript. Prioritize clarity and avoid repetition.\n`;
+Based on the following questionnaire transcript, please generate a few open-ended follow-up questions for Round ${requestedRoundNumber}.
+
+Return only the questions themselves, as plain text, with decent spacing between each question with the prompt "(Your answer here)".
+
+${transcript}
+`;
 }
