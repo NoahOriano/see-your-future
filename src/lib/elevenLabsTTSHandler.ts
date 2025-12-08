@@ -1,43 +1,41 @@
-import axios from "axios";
+export async function generateTTS(text: string, voiceId = "21m00Tcm4TlvDq8ikWAM") {
+  const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+  if (!apiKey) throw new Error("Missing VITE_ELEVENLABS_API_KEY");
 
-export interface TTSHandlerConfig {
-    apiKey: string;
-    voiceId?: string;
-    modelId?: string;
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
+    {
+      method: "POST",
+      headers: {
+        "xi-api-key": apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: {
+          stability: 0.4,
+          similarity_boost: 0.8,
+        },
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`ElevenLabs error ${response.status}: ${await response.text()}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  return arrayBufferToBase64(arrayBuffer); // 🔥 browser-safe
 }
 
-export class ElevenLabsTTSHandler {
-    private apiKey: string;
-    private voiceId: string;
-    private modelId: string;
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
 
-    constructor(config: TTSHandlerConfig) {
-        this.apiKey = config.apiKey;
-        this.voiceId = config.voiceId || "eleven_monolingual_v1";
-        this.modelId = config.modelId || "eleven_multilingual_v2";
-    }
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
 
-    async generate(text: string): Promise<Buffer> {
-        try {
-            const response = await axios.post(
-                `https://api.elevenlabs.io/v1/text-to-speech/${this.voiceId}`,
-                {
-                    text,
-                    model_id: this.modelId,
-                },
-                {
-                    headers: {
-                        "xi-api-key": this.apiKey,
-                        "Content-Type": "application/json",
-                    },
-                    responseType: "arraybuffer",
-                }
-            );
-
-            return Buffer.from(response.data);
-        } catch (err: any) {
-            console.error("ElevenLabs TTS Error:", err.response?.data || err.message);
-            throw new Error("TTS generation failed.");
-        }
-    }
+  return btoa(binary);
 }
