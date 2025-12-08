@@ -18,6 +18,7 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
   imageMimeType,
 }) => {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imagePrompt, setImagePrompt] = useState<string | null>(null);
   const [imgLoading, setImgLoading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
 
@@ -58,8 +59,9 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
   const handleGenerateImage = async () => {
     setImgError(null);
     setImgLoading(true);
+    setImagePrompt(null);
     try {
-      const url = await generateImageFromFuture(description, {
+      const { url, prompt } = await generateImageFromFuture(description, {
         imageBase64,
         imageMimeType,
         // We don't have the textual image description here in the main app yet,
@@ -69,6 +71,7 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
         imageDescription: null,
       });
       setImageUrl(url);
+      setImagePrompt(prompt ?? null);
     } catch (e: unknown) {
       if (e instanceof Error) {
         setImgError(e.message);
@@ -179,6 +182,22 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
             alt="Generated future"
             style={{ maxWidth: "100%", borderRadius: 8, border: "1px solid #ddd" }}
           />
+          {imagePrompt && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: "0.5rem 0.75rem",
+                borderRadius: 4,
+                backgroundColor: "#f8f9fa",
+                border: "1px dashed #ccc",
+                fontSize: "0.85rem",
+                color: "#555",
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              <strong>Image prompt (debug):</strong> {imagePrompt}
+            </div>
+          )}
         </div>
       )}
     </section>

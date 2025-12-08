@@ -32,6 +32,7 @@ import { generateImagePrompt } from "./prompts.js";
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore
 import { GeminiChatHandler } from "./geminiChatHandler.js";
+import OpenAI from "openai";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "POST") {
@@ -84,6 +85,13 @@ export default async function handler(req: any, res: any) {
       console.error("Gemini image-prompt generation failed:", e);
       finalPrompt = imagePromptInstruction;
     }
+  }
+
+  // Prepend prompt to improve image ingestion from user image when provided
+  if (imageBase64 && imageMimeType) {
+    finalPrompt =
+      "Use the provided reference image of the given subject and place it within the future described below. Get creative if necessary.\n\n" +
+      finalPrompt;
   }
 
   // Keep the final text we send to the image provider bounded so we don't
@@ -187,7 +195,9 @@ export default async function handler(req: any, res: any) {
         ) {
           const mime = part.inlineData.mimeType || "image/jpeg";
           const data = part.inlineData.data;
-          return res.status(200).json({ url: `data:${mime};base64,${data}` });
+          return res
+            .status(200)
+            .json({ url: `data:${mime};base64,${data}`, prompt: finalPrompt });
         }
       }
 
@@ -200,56 +210,79 @@ export default async function handler(req: any, res: any) {
     }
   }
 
-  // Default: call OpenAI Images API (keep backward compatibility) using the
-  // short, intermediate-generated image prompt. We DO NOT send the full chat
-  // history or future transcript here, only the concise image-focused prompt.
+  // Default: call OpenAI's Responses API with the `image_generation` tool.
+  // We still use Gemini to craft `finalPrompt`, but the actual pixels come
+  // from OpenAI. The generated image should depict the SAME person described
+  // in the reference photo, placed inside the future scene described above.
+  //
+  // IMPORTANT: When a reference image is provided, we send a true multimodal
+  // request where the OpenAI model sees BOTH the short text prompt and the
+  // actual user image as context.
   try {
-    const resp = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${key}`,
-      },
-      body: JSON.stringify({ prompt: finalPrompt, n: 1, size: "1024x1024" }),
+    const openai = new OpenAI({ apiKey: key });
+
+    // Build multimodal input: text prompt + optional reference image.
+    const content: any[] = [
+      { type: "input_text", text: finalPrompt },
+    ];
+
+    if (imageBase64 && imageMimeType) {
+      const base64Data = imageBase64.includes(",")
+        ? imageBase64.split(",")[1]
+        : imageBase64;
+      const dataUrl = `data:${imageMimeType};base64,${base64Data}`;
+
+      content.push({
+        type: "input_image",
+        image_url: dataUrl,
+      });
+    }
+
+    const response = await openai.responses.create({
+      model: process.env.IMAGE_MODEL || "gpt-4.1",
+      input: [
+        {
+          role: "user",
+          content,
+        },
+      ],
+      tools: [{ type: "image_generation" }],
     });
 
-    if (!resp.ok) {
-      const txt = await resp.text();
-      console.error("Image API error:", resp.status, txt);
-      res.status(502).json({ error: "Image provider returned an error" });
+    // The exact shape may evolve, but the common pattern is that `response.output`
+    // contains one or more items with type `image_generation_call` and a
+    // base64-encoded image as `result`.
+    const base = response as unknown as {
+      output?: unknown;
+      outputs?: unknown;
+    };
+    const outputs = (base.output ?? base.outputs) as unknown;
+
+    // Extract the generated image payload from the tool result.
+    let generatedImageBase64: string | null = null;
+    if (Array.isArray(outputs)) {
+      for (const item of outputs) {
+        if (
+          item &&
+          typeof item === "object" &&
+          "type" in item &&
+          (item as any).type === "image_generation_call" &&
+          "result" in item
+        ) {
+          generatedImageBase64 = String((item as any).result);
+          break;
+        }
+      }
+    }
+
+    if (!generatedImageBase64) {
+      console.error("OpenAI image_generation tool returned no image payload", response);
+      res.status(502).json({ error: "Image provider returned no image data" });
       return;
     }
 
-    const json = await resp.json();
-
-    // Many providers return a URL or base64 data. Try common shapes.
-    const url = json?.data?.[0]?.url ?? json?.data?.[0]?.b64_json ?? null;
-
-    if (!url) {
-      res.status(502).json({ error: "Unexpected image API response" });
-      return;
-    }
-
-    // If provider responded with base64, prefix appropriately
-    if (typeof url === "string" && url.startsWith("data:")) {
-      res.status(200).json({ url });
-      return;
-    }
-
-    if (typeof url === "string" && url.startsWith("/")) {
-      // relative url; return direct
-      res.status(200).json({ url });
-      return;
-    }
-
-    // If provider returned b64 JSON
-    if (typeof url === "string" && /^[A-Za-z0-9+/=\n]+$/.test(url)) {
-      res.status(200).json({ url: `data:image/png;base64,${url}` });
-      return;
-    }
-
-    // Otherwise assume it's a direct URL
-    res.status(200).json({ url });
+    const dataUrl = `data:image/png;base64,${generatedImageBase64}`;
+    res.status(200).json({ url: dataUrl, prompt: finalPrompt });
   } catch (e: any) {
     console.error("generate-image handler error:", e);
     res.status(500).json({ error: e?.message ?? String(e) });
