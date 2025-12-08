@@ -7,13 +7,20 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { text, voiceId = "Rachel" } = req.body ?? {};
+  // Prefer a configured ElevenLabs voice ID from the environment; fall back to
+  // a request-provided voiceId or a sane default. Note: ElevenLabs expects the
+  // *voice ID* here, not the human-readable display name.
+  const { text, voiceId: requestVoiceId } = req.body ?? {};
+  const voiceId =
+    process.env.ELEVENLABS_VOICE_ID || requestVoiceId || "21m00Tcm4TlvDq8ikWAM"; // example: Rachel voice ID
 
   if (!text || typeof text !== "string") {
     return res.status(400).json({ error: "Missing 'text' in request body" });
   }
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
+  const elevenVoiceIdDoc =
+    "Ensure ELEVENLABS_VOICE_ID is set to a valid voice ID from your ElevenLabs dashboard, not the display name.";
   if (!apiKey) {
     return res.status(501).json({ error: "ELEVENLABS_API_KEY is not set on the server" });
   }
@@ -40,7 +47,21 @@ export default async function handler(req: any, res: any) {
     );
 
     if (!response.ok) {
-      return res.status(500).json({ error: `ElevenLabs error: ${response.statusText}` });
+      // Try to read JSON error body from ElevenLabs for better debugging.
+      let extra = "";
+      try {
+        const errJson = await response.json();
+        extra = ` | details: ${JSON.stringify(errJson)}`;
+      } catch {
+        // ignore body parse errors; we'll just use status text
+      }
+
+      return res
+        .status(500)
+        .json({
+          error: `ElevenLabs error: ${response.status} ${response.statusText}${extra}`,
+          hint: elevenVoiceIdDoc,
+        });
     }
 
     const arrayBuffer = await response.arrayBuffer();
