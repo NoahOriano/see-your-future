@@ -21,7 +21,7 @@ export const QuestionRoundForm: React.FC<QuestionRoundFormProps> = ({
   );
 
   return (
-    <div>
+    <div className="form-wrapper">
       <h2 style={{ marginBottom: "0.25rem" }}>{round.label}</h2>
       <p style={{ marginTop: 0, color: "#555", marginBottom: "1rem" }}>
         Round {round.roundNumber} • Source: {round.source}

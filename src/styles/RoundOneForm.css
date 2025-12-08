@@ -104,14 +104,14 @@ button[type="submit"]:hover {
 
 /* ---------- FORM WRAPPER ---------- */
 
-.round1-wrapper {
+.form-wrapper {
   display: flex;
   justify-content: center;
   padding: 32px 0;
 }
 
 /* Override the white Tailwind card with your theme */
-.round1-form {
+.form-wrapper {
   width: 100%;
   max-width: 680px;
   background: var(--card);
@@ -122,7 +122,7 @@ button[type="submit"]:hover {
 }
 
 /* Title */
-.round1-form h1 {
+.form-wrapper h1 {
   font-size: 22px;
   margin-bottom: 22px;
   font-weight: 700;
@@ -131,12 +131,12 @@ button[type="submit"]:hover {
 
 /* ---------- LABELS ---------- */
 
-.round1-form label {
+.form-wrapper label {
   display: block;
   margin-bottom: 20px;
 }
 
-.round1-form label span {
+.form-wrapper label span {
   display: block;
   margin-bottom: 6px;
   font-weight: 600;
@@ -146,7 +146,7 @@ button[type="submit"]:hover {
 
 /* ---------- TEXTAREAS ---------- */
 
-.round1-form textarea {
+.form-wrapper textarea {
   width: 100%;
   background: var(--glass);
   border: 1px solid rgba(255, 255, 255, 0.04);
@@ -158,11 +158,11 @@ button[type="submit"]:hover {
   min-height: 110px;
 }
 
-.round1-form textarea::placeholder {
+.form-wrapper textarea::placeholder {
   color: rgba(255, 255, 255, 0.18);
 }
 
-.round1-form textarea:focus {
+.form-wrapper textarea:focus {
   outline: none;
   border: 1px solid var(--accent);
   background: rgba(255, 255, 255, 0.04);
@@ -171,13 +171,13 @@ button[type="submit"]:hover {
 
 /* ---------- FILE INPUTS ---------- */
 
-.round1-form input[type="file"] {
+.form-wrapper input[type="file"] {
   margin-top: 6px;
   color: var(--muted);
   font-size: 13px;
 }
 
-.round1-form input[type="file"]::-webkit-file-upload-button {
+.form-wrapper input[type="file"]::-webkit-file-upload-button {
   background: linear-gradient(180deg, var(--accent), #5bd1ff);
   border: none;
   padding: 7px 14px;
@@ -189,14 +189,14 @@ button[type="submit"]:hover {
   transition: opacity 0.2s, transform 0.15s;
 }
 
-.round1-form input[type="file"]::-webkit-file-upload-button:hover {
+.form-wrapper input[type="file"]::-webkit-file-upload-button:hover {
   opacity: 0.9;
   transform: translateY(-1px);
 }
 
 /* ---------- SUBMIT BUTTON ---------- */
 
-.round1-form button[type="submit"] {
+.form-wrapper button[type="submit"] {
   width: 100%;
   margin-top: 10px;
   padding: 12px 0;
@@ -211,7 +211,7 @@ button[type="submit"]:hover {
   transition: box-shadow 0.25s, transform 0.15s;
 }
 
-.round1-form button[type="submit"]:hover {
+.form-wrapper button[type="submit"]:hover {
   box-shadow: 0 12px 36px rgba(124, 92, 255, 0.30);
   transform: translateY(-2px);
 }
