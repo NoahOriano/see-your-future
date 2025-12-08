@@ -286,29 +286,6 @@ export default function Home() {
     },
 
     async generateFutureResult(rounds: QuestionRound[]): Promise<FutureResult> {
-      // First try server-side endpoint (recommended; uses GEMINI_API_KEY on server)
-      try {
-        const resp = await fetch("/api/generate-future", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rounds }),
-        });
-
-        if (resp.ok) {
-          const json = await resp.json();
-          if (json && typeof json.description === "string") {
-            return {
-              description: json.description,
-              qualityScore: typeof json.qualityScore === "number" ? json.qualityScore : 75,
-              qualityLabel: typeof json.qualityLabel === "string" ? json.qualityLabel : "Inferred",
-            };
-          }
-        }
-      } catch (e) {
-        console.warn("Server generate-future failed, falling back to client logic", e);
-      }
-
-      // Fallback: client-side behavior (uses client Gemini if configured)
       const transcript = buildRoundsTranscript(rounds);
       const prompt = generateFuturePrompt(transcript);
 

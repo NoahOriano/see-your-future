@@ -20,7 +20,7 @@ export class GeminiChatHandler {
     constructor(config: ChatHandlerConfig) {
         this.genAI = new GoogleGenerativeAI(config.apiKey);
         this.model = this.genAI.getGenerativeModel({
-            model: config.modelName || "gemini-2.5-flash",
+            model: config.modelName || "gemini-2.5-flash-image",
             systemInstruction: config.systemInstruction,
         });
     }
