@@ -11,13 +11,14 @@ import {
 } from "../types/future";
 import {
   FutureEngineHandlers,
+  GenerateFutureResultContext,
   NextRoundRequestContext,
   NextRoundResponse,
 } from "../types/engine";
 
 import prebuiltQuestionsJson from "../data/prebuiltQuestions.json";
-import { generateFuturePrompt, generateRoundQuestionsPrompt } from "../lib/prompts";
 import Navbar from "../components/navbar";
+import { generateFuturePrompt, generateRoundQuestionsPrompt } from "../lib/prompts";
 
 
 function buildRoundsTranscript(rounds: QuestionRound[]): string {
@@ -42,7 +43,7 @@ function buildRoundsTranscript(rounds: QuestionRound[]): string {
     .join("\n\n");
 }
 
-function extractJsonObjectFromText(text: string): any {
+function extractJsonObjectFromText(text: string): Record<string, unknown> {
   // Handles cases where the model wraps JSON in text or ```json ``` fences
   const firstBrace = text.indexOf("{");
   const lastBrace = text.lastIndexOf("}");
@@ -285,7 +286,30 @@ export default function Home() {
       return { round: null };
     },
 
-    async generateFutureResult(rounds: QuestionRound[]): Promise<FutureResult> {
+    async generateFutureResult({ rounds, imageBase64, imageMimeType, imageDescription }: GenerateFutureResultContext): Promise<FutureResult> {
+      // First try server-side endpoint (recommended; uses GEMINI_API_KEY on server)
+      try {
+        const resp = await fetch("/api/generate-future", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rounds, imageBase64, imageMimeType, imageDescription }),
+        });
+
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json && typeof json.description === "string") {
+            return {
+              description: json.description,
+              qualityScore: typeof json.qualityScore === "number" ? json.qualityScore : 75,
+              qualityLabel: typeof json.qualityLabel === "string" ? json.qualityLabel : "Inferred",
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("Server generate-future failed, falling back to client logic", e);
+      }
+
+      // Fallback: client-side behavior (uses client Gemini if configured)
       const transcript = buildRoundsTranscript(rounds);
       const prompt = generateFuturePrompt(transcript);
 
@@ -307,7 +331,7 @@ export default function Home() {
       try {
         const parsed = extractJsonObjectFromText(rawText);
 
-        const description = typeof parsed.description === "string" && parsed.description.trim() ? parsed.description : rawText;
+        const description = typeof parsed.description === "string" && parsed.description.trim() ? parsed.description : rawText as string;
         const scoreNum = Number(parsed.qualityScore);
         const qualityScore = Number.isFinite(scoreNum) && scoreNum >= 0 && scoreNum <= 100 ? scoreNum : 75;
         const qualityLabel = typeof parsed.qualityLabel === "string" && parsed.qualityLabel.trim() ? parsed.qualityLabel : "Inferred";

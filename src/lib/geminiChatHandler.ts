@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, Part, GenerativeModel, ChatSession } from "@google/generative-ai";
 
 export interface ChatMessage {
     role: "user" | "model";
@@ -13,8 +13,8 @@ export interface ChatHandlerConfig {
 
 export class GeminiChatHandler {
     private genAI: GoogleGenerativeAI;
-    private model: any;
-    private chat: any;
+    private model: GenerativeModel;
+    private chat?: ChatSession;
     private history: ChatMessage[] = [];
 
     constructor(config: ChatHandlerConfig) {
@@ -35,12 +35,24 @@ export class GeminiChatHandler {
         });
     }
 
-    async sendMessage(message: string): Promise<string> {
+    async sendMessage(message: string, image?: { imageBase64: string | null; imageMimeType: string | null }): Promise<string> {
         if (!this.chat) {
             await this.startChat();
         }
+        
+        const parts: Part[] = [{text: message}];
 
-        const result = await this.chat.sendMessage(message);
+        if (image && image.imageBase64 && image.imageMimeType) {
+            const base64Data = image.imageBase64.replace(/^data:[^;]+;base64,/, "");
+            parts.push({
+                inlineData: {
+                    data: base64Data,
+                    mimeType: image.imageMimeType,
+                }
+            });
+        }
+
+        const result = await this.chat!.sendMessage(parts);
         const response = result.response;
         const text = response.text();
 
@@ -58,7 +70,7 @@ export class GeminiChatHandler {
             await this.startChat();
         }
 
-        const result = await this.chat.sendMessageStream(message);
+        const result = await this.chat!.sendMessageStream(message);
         let fullText = "";
 
         for await (const chunk of result.stream) {
@@ -79,7 +91,7 @@ export class GeminiChatHandler {
 
     clearHistory(): void {
         this.history = [];
-        this.chat = null;
+        this.chat = undefined;
     }
 
     resetChat(): void {

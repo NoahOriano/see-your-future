@@ -8,6 +8,7 @@ import {
 import { QuestionRoundForm } from "./QuestionRoundForm";
 import { RoundProgress } from "./RoundProgress";
 import { FutureResultView } from "./FutureResultView";
+import { ImageUpload } from "./ImageUpload";
 
 interface SeeYourFutureAppProps {
   /**
@@ -40,6 +41,13 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [imageMimeType, setImageMimeType] = useState<string | null>(null);
+  const [imageDescription, setImageDescription] = useState<string | null>(null);
+
+  const handleImageSelected = (base64: string | null, mimeType: string | null, description: string | null) => {
+    setImageBase64(base64);
+    setImageMimeType(mimeType);
+    setImageDescription(description);
+  };
 
   // Initialize Round 1 on mount
   useEffect(() => {
@@ -129,12 +137,16 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
         }
       } else {
         // No more rounds; generate final future
-        const future = await engineHandlers.generateFutureResult(rounds, imageBase64, imageMimeType);
+        const future = await engineHandlers.generateFutureResult({ rounds, imageBase64, imageMimeType, imageDescription });
         setResult(future);
       }
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message ?? "Something went wrong while processing.");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        console.error(e);
+        setError(e.message ?? "Something went wrong while processing.");
+      } else {
+        setError("Something went wrong while processing.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -146,6 +158,7 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
     autoRequestNextRound,
     imageBase64,
     imageMimeType,
+    imageDescription,
   ]);
 
   const handleGenerateFutureNow = useCallback(async () => {
@@ -153,15 +166,19 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const future = await engineHandlers.generateFutureResult(rounds, imageBase64, imageMimeType);
+      const future = await engineHandlers.generateFutureResult({ rounds, imageBase64, imageMimeType, imageDescription });
       setResult(future);
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message ?? "Failed to generate your future.");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        console.error(e);
+        setError(e.message ?? "Failed to generate your future.");
+      } else {
+        setError("Failed to generate your future.");
+      }
     } finally {
       setIsLoading(false);
     }
-  }, [rounds, engineHandlers, imageBase64, imageMimeType]);
+  }, [rounds, engineHandlers, imageBase64, imageMimeType, imageDescription]);
 
   const handleReset = useCallback(() => {
     // Reset to initial state; caller can also control via props rebuild
@@ -196,10 +213,7 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
         </p>
       </header>
 
-      <div>
-        <h3>Upload an image of yourself! (optional)</h3>
-        <input type="file" accept="image/*" onChange={handleImageUpload} />
-      </div>
+      <ImageUpload onImageSelected={handleImageSelected} />
 
       {rounds.length > 0 && (
         <>

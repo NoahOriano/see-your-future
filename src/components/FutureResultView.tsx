@@ -9,8 +9,8 @@ import { generateTTS } from "../lib/elevenLabsTTSHandler";
 interface FutureResultViewProps {
   result: FutureResult | null;
   onReset?: () => void;
-  imageBase64?: string;
-  imageMimeType?: string | null;
+  imageBase64: string | null;
+  imageMimeType: string | null;
 }
 
 export const FutureResultView: React.FC<FutureResultViewProps> = ({
@@ -19,41 +19,31 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
   imageBase64,
   imageMimeType,
 }) => {
-  const [imagePrompt, setImagePrompt] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imgLoading, setImgLoading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (result?.description) {
-      const handleGenerateImage = async (prompt: string) => {
-        setImgError(null);
-        setImgLoading(true);
-        try {
-          const url = await generateImageFromContext(prompt, imageBase64, imageMimeType ?? "image/jpeg");
-          setImageUrl(url);
-        } catch (e: unknown) {
-          setImgError(e instanceof Error ? e.message : String(e));
-        } finally {
-          setImgLoading(false);
-        }
-      };
+  if (!result) return null;
 
-      const handleGenerateImagePrompt = async () => {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) {
-          return;
-        }
-        const handler = new GeminiChatHandler({ apiKey });
-        const prompt = generateImagePrompt(result.description);
-        const generatedPrompt = await handler.sendMessage(prompt);
-        setImagePrompt(generatedPrompt);
-        handleGenerateImage(generatedPrompt);
-      };
-      handleGenerateImagePrompt();
+  const { description, qualityScore, qualityLabel } = result;
+
+  const handleGenerateImage = async () => {
+    setImgError(null);
+    setImgLoading(true);
+    try {
+      const url = await generateImageFromFuture(description, { imageBase64, imageMimeType });
+      setImageUrl(url);
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setImgError(e.message);
+      } else {
+        setImgError("An unknown error occurred");
+      }
+    } finally {
+      setImgLoading(false);
     }
-  }, [result, imageBase64, imageMimeType]);
-
+  };
+  
   const [ttsBase64, setTtsBase64] = useState<string | null>(null);
   const [ttsLoading, setTtsLoading] = useState(false);
   const [ttsError, setTtsError] = useState<string | null>(null);
