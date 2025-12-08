@@ -1,19 +1,45 @@
 // src/components/FutureResultView.tsx
-import React from "react";
+import React, { useState } from "react";
 import { FutureResult } from "../types/future";
+import { generateImageFromFuture } from "../lib/imageGeneratorHandler";
 
 interface FutureResultViewProps {
   result: FutureResult | null;
   onReset?: () => void;
+  imageBase64: string | null;
+  imageMimeType: string | null;
 }
 
 export const FutureResultView: React.FC<FutureResultViewProps> = ({
   result,
   onReset,
+  imageBase64,
+  imageMimeType,
 }) => {
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [imgLoading, setImgLoading] = useState(false);
+  const [imgError, setImgError] = useState<string | null>(null);
+
   if (!result) return null;
 
   const { description, qualityScore, qualityLabel } = result;
+
+  const handleGenerateImage = async () => {
+    setImgError(null);
+    setImgLoading(true);
+    try {
+      const url = await generateImageFromFuture(description, { imageBase64, imageMimeType });
+      setImageUrl(url);
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setImgError(e.message);
+      } else {
+        setImgError("An unknown error occurred");
+      }
+    } finally {
+      setImgLoading(false);
+    }
+  };
 
   return (
     <section style={{ marginTop: "2rem", textAlign: "left" }}>
@@ -76,6 +102,30 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
         >
           Start Over
         </button>
+      )}
+
+      <div style={{ marginTop: "1rem" }}>
+        <button
+          type="button"
+          onClick={handleGenerateImage}
+          disabled={imgLoading}
+          style={{ padding: "0.5rem 1rem", marginRight: 10 }}
+        >
+          {imgLoading ? "Generating image..." : "Generate Image"}
+        </button>
+        {imgError && (
+          <span style={{ color: "#b00020", marginLeft: 8 }}>{imgError}</span>
+        )}
+      </div>
+
+      {imageUrl && (
+        <div style={{ marginTop: 12 }}>
+          <img
+            src={imageUrl}
+            alt="Generated future"
+            style={{ maxWidth: "100%", borderRadius: 8, border: "1px solid #ddd" }}
+          />
+        </div>
       )}
     </section>
   );
