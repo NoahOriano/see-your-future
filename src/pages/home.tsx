@@ -17,6 +17,7 @@ import {
 } from "../types/engine";
 
 import prebuiltQuestionsJson from "../data/prebuiltQuestions.json";
+import Navbar from "../components/navbar";
 import { generateFuturePrompt, generateRoundQuestionsPrompt } from "../lib/prompts";
 
 
@@ -346,6 +347,7 @@ export default function Home() {
 
   return (
     <div className="home-page">
+      <Navbar></Navbar>
       <h1>See Your Future</h1>
 
       <p>
@@ -371,6 +373,7 @@ export default function Home() {
           autoRequestNextRound={true}
         />
       </div>
+    <footer></footer>
     </div>
   );
 }

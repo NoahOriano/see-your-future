@@ -190,11 +190,11 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "1.5rem" }}>
-      <header style={{ marginBottom: "1.5rem" }}>
+      <header style={{ marginBottom: "1.5rem", flexDirection: "column" }}>
         <h1>See Your Future</h1>
         <p style={{ color: "#555", marginTop: "0.5rem" }}>
           Answer a series of questions across multiple rounds. Based on your
-          responses, we’ll generate a narrative of your future and a separate
+          responses, we'll generate a narrative of your future and a separate
           quality score for your outcome.
         </p>
       </header>

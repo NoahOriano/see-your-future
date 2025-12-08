@@ -2,6 +2,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "./pages/home";
 import About from "./pages/about";
+import FormDataState from "./pages/form"
 import { DevGeminiFutureTest } from "./dev/DevGeminiFutureTest";
 
 export default function App() {
@@ -11,6 +12,7 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
         <Route path="/dev-gemini" element={<DevGeminiFutureTest />} />
+        <Route path="/form" element={<FormDataState />} />
       </Routes>
     </BrowserRouter>
   )

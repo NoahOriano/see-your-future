@@ -61,7 +61,6 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
         style={{
           padding: "0.75rem 1rem",
           borderRadius: 8,
-          background: "#f8f9fa",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
