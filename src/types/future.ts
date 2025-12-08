@@ -1,6 +1,6 @@
 // src/types/future.ts
 
-export type QuestionInputType = "text" | "select" | "slider";
+export type QuestionInputType = "text" | "select" | "slider" | "freeform";
 
 export type QuestionCategory =
   | "career"

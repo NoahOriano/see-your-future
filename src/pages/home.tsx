@@ -26,11 +26,15 @@ function buildRoundsTranscript(rounds: QuestionRound[]): string {
       const header = `Round ${round.roundNumber} (${round.source} - ${round.label})`;
       const qas = round.questions
         .map((q, idx) => {
-          const answerText = (q.answer ?? "").trim();
-          return [
-            `  Q${idx + 1}: ${q.prompt}`,
-            `  A${idx + 1}: ${answerText || "(no answer)"}`,
-          ].join("\n");
+          if (q.type === "freeform") {
+            return `  Freeform response:\n${q.answer ?? "(no answer)"}`;
+          } else {
+            const answerText = (q.answer ?? "").trim();
+            return [
+              `  Q${idx + 1}: ${q.prompt}`,
+              `  A${idx + 1}: ${answerText || "(no answer)"}`,
+            ].join("\n");
+          }
         })
         .join("\n");
       return `${header}\n${qas}`;
@@ -223,41 +227,57 @@ export default function Home() {
         // If Gemini key isn't configured for client-side, fall back to simple static questions
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
         if (!apiKey) {
-          const lastRound = previousRounds.length > 0 ? previousRounds[previousRounds.length - 1] : undefined;
-          const snippet = lastRound?.questions[0]?.answer?.slice(0, 40) ?? "";
+          const prompt = `Based on the user's previous answers, please generate a few open-ended questions to help them reflect deeper on their future.
 
-          const generatedQuestions: Question[] = [
-            { id: "future_doubts", roundNumber: requestedRoundNumber, prompt: `What concerns do you have about moving toward "${snippet}..."?`, type: "text", category: "personal" },
-            { id: "support_network", roundNumber: requestedRoundNumber, prompt: "How strong is your current support network (friends, family, mentors)?", type: "select", category: "relationships", options: ["Weak", "Average", "Strong"] },
-          ];
-
-          const round: QuestionRound = { roundNumber: requestedRoundNumber, label: `Round ${requestedRoundNumber}: Generated Questions`, source: "generated", questions: generatedQuestions };
+- What are the biggest challenges you foresee in the next 10 years?
+- How will you measure success and happiness?`;
+          const question: Question = {
+            id: "generated_freeform",
+            roundNumber: requestedRoundNumber,
+            prompt,
+            type: "freeform",
+          };
+          const round: QuestionRound = {
+            roundNumber: requestedRoundNumber,
+            label: `Round ${requestedRoundNumber}: Deeper Reflection`,
+            source: "generated",
+            questions: [question],
+          };
           return { round };
         }
 
         // Use Gemini client-side if a key is present
         const prompt = generateRoundQuestionsPrompt(transcript, requestedRoundNumber);
-
         try {
           const raw = await geminiHandler.sendMessage(prompt);
-          const arr = JSON.parse(raw.trim());
-          if (!Array.isArray(arr) || arr.length === 0) throw new Error("LLM did not return a question array");
-
-          const questions: Question[] = arr.map((q: any, idx: number) => ({ id: q.id ?? `g_${requestedRoundNumber}_${idx}`, roundNumber: requestedRoundNumber, prompt: q.prompt ?? String(q.text ?? ""), type: q.type ?? "text", category: q.category, options: Array.isArray(q.options) ? q.options : undefined }));
-
-          const round: QuestionRound = { roundNumber: requestedRoundNumber, label: `Round ${requestedRoundNumber}: Generated Questions`, source: "generated", questions };
+          const question: Question = {
+            id: `generated_freeform_${requestedRoundNumber}`,
+            roundNumber: requestedRoundNumber,
+            prompt: raw,
+            type: "freeform",
+          };
+          const round: QuestionRound = {
+            roundNumber: requestedRoundNumber,
+            label: `Round ${requestedRoundNumber}: Generated Questions`,
+            source: "generated",
+            questions: [question],
+          };
           return { round };
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.error("Failed to generate round questions via LLM:", e);
-          const lastRound = previousRounds.length > 0 ? previousRounds[previousRounds.length - 1] : undefined;
-          const snippet = lastRound?.questions[0]?.answer?.slice(0, 40) ?? "";
+          const prompt = `Based on the user's previous answers, please generate a few open-ended questions to help them reflect deeper on their future.
 
-          const generatedQuestions: Question[] = [
-            { id: "future_doubts", roundNumber: requestedRoundNumber, prompt: `What concerns do you have about moving toward "${snippet}..."?`, type: "text", category: "personal" },
-            { id: "support_network", roundNumber: requestedRoundNumber, prompt: "How strong is your current support network (friends, family, mentors)?", type: "select", category: "relationships", options: ["Weak", "Average", "Strong"] },
-          ];
-
-          const round: QuestionRound = { roundNumber: requestedRoundNumber, label: `Round ${requestedRoundNumber}: Generated Questions`, source: "generated", questions: generatedQuestions };
+- What are the biggest challenges you foresee in the next 10 years?
+- How will you measure success and happiness?`;
+          const question: Question = {
+            id: "generated_freeform_fallback",
+            roundNumber: requestedRoundNumber,
+            prompt,
+            type: "freeform",
+          };
+          const round: QuestionRound = {
+            roundNumber: requestedRoundNumber, label: `Round ${requestedRoundNumber}: Deeper Reflection (Fallback)`, source: "generated", questions: [question]
+          };
           return { round };
         }
       }
@@ -266,36 +286,13 @@ export default function Home() {
     },
 
     async generateFutureResult(rounds: QuestionRound[]): Promise<FutureResult> {
-      // First try server-side endpoint (recommended; uses GEMINI_API_KEY on server)
-      try {
-        const resp = await fetch("/api/generate-future", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rounds }),
-        });
-
-        if (resp.ok) {
-          const json = await resp.json();
-          if (json && typeof json.description === "string") {
-            return {
-              description: json.description,
-              qualityScore: typeof json.qualityScore === "number" ? json.qualityScore : 75,
-              qualityLabel: typeof json.qualityLabel === "string" ? json.qualityLabel : "Inferred",
-            };
-          }
-        }
-      } catch (e) {
-        console.warn("Server generate-future failed, falling back to client logic", e);
-      }
-
-      // Fallback: client-side behavior (uses client Gemini if configured)
       const transcript = buildRoundsTranscript(rounds);
       const prompt = generateFuturePrompt(transcript);
 
       let rawText: string;
       try {
         rawText = await geminiHandler.sendMessage(prompt);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("Gemini error:", e);
         // Fallback simple description
         return {

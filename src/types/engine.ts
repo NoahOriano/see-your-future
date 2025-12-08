@@ -24,5 +24,9 @@ export interface FutureEngineHandlers {
    * Called when the user is done answering questions and wants to
    * generate the future description + quality score.
    */
-  generateFutureResult: (rounds: QuestionRound[]) => Promise<FutureResult>;
+  generateFutureResult: (
+    rounds: QuestionRound[],
+    imageBase64?: string | null,
+    imageMimeType?: string | null
+  ) => Promise<FutureResult>;
 }
