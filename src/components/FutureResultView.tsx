@@ -8,11 +8,15 @@ import { GeminiChatHandler } from "../lib/geminiChatHandler";
 interface FutureResultViewProps {
   result: FutureResult | null;
   onReset?: () => void;
+  imageBase64?: string | null;
+  imageMimeType?: string | null;
 }
 
 export const FutureResultView: React.FC<FutureResultViewProps> = ({
   result,
   onReset,
+  imageBase64,
+  imageMimeType,
 }) => {
   const [imagePrompt, setImagePrompt] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -21,6 +25,19 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
 
   useEffect(() => {
     if (result?.description) {
+      const handleGenerateImage = async (prompt: string) => {
+        setImgError(null);
+        setImgLoading(true);
+        try {
+          const url = await generateImageFromFuture(prompt, imageBase64, imageMimeType ?? undefined);
+          setImageUrl(url);
+        } catch (e: unknown) {
+          setImgError(e instanceof Error ? e.message : String(e));
+        } finally {
+          setImgLoading(false);
+        }
+      };
+
       const handleGenerateImagePrompt = async () => {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         if (!apiKey) {
@@ -30,24 +47,11 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
         const prompt = generateImagePrompt(result.description);
         const generatedPrompt = await handler.sendMessage(prompt);
         setImagePrompt(generatedPrompt);
+        handleGenerateImage(generatedPrompt);
       };
       handleGenerateImagePrompt();
     }
-  }, [result]);
-
-  const handleGenerateImage = async () => {
-    if (!imagePrompt) return;
-    setImgError(null);
-    setImgLoading(true);
-    try {
-      const url = await generateImageFromFuture(imagePrompt);
-      setImageUrl(url);
-    } catch (e: unknown) {
-      setImgError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setImgLoading(false);
-    }
-  };
+  }, [result, imageBase64, imageMimeType]);
 
   if (!result) return null;
 
@@ -68,16 +72,6 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
         {description}
       </div>
 
-      {imagePrompt && (
-        <div>
-          <h3>Image Prompt</h3>
-          <p>{imagePrompt}</p>
-          <button onClick={handleGenerateImage} disabled={imgLoading}>
-            {imgLoading ? "Generating Image..." : "Generate Image"}
-          </button>
-        </div>
-      )}
-
       {imgLoading && <p>Generating image...</p>}
       {imgError && <p>Error generating image: {imgError}</p>}
       {imageUrl && (
@@ -86,6 +80,7 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
             src={imageUrl}
             alt="Generated future"
           />
+          {imagePrompt && <p>{imagePrompt}</p>}
         </div>
       )}
 

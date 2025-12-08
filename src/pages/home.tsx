@@ -263,7 +263,7 @@ export default function Home() {
             questions: [question],
           };
           return { round };
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.error("Failed to generate round questions via LLM:", e);
           const prompt = `Based on the user's previous answers, please generate a few open-ended questions to help them reflect deeper on their future.
 
@@ -292,7 +292,7 @@ export default function Home() {
       let rawText: string;
       try {
         rawText = await geminiHandler.sendMessage(prompt);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("Gemini error:", e);
         // Fallback simple description
         return {

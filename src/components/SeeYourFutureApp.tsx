@@ -38,6 +38,8 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<FutureResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
 
   // Initialize Round 1 on mount
   useEffect(() => {
@@ -71,6 +73,18 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
     },
     [setRounds]
   );
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageBase64(reader.result as string);
+      setImageMimeType(file.type);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmitRound = useCallback(async () => {
     if (!currentRound) return;
@@ -115,7 +129,7 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
         }
       } else {
         // No more rounds; generate final future
-        const future = await engineHandlers.generateFutureResult(rounds);
+        const future = await engineHandlers.generateFutureResult(rounds, imageBase64, imageMimeType);
         setResult(future);
       }
     } catch (e: any) {
@@ -130,6 +144,8 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
     rounds,
     engineHandlers,
     autoRequestNextRound,
+    imageBase64,
+    imageMimeType,
   ]);
 
   const handleGenerateFutureNow = useCallback(async () => {
@@ -137,7 +153,7 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const future = await engineHandlers.generateFutureResult(rounds);
+      const future = await engineHandlers.generateFutureResult(rounds, imageBase64, imageMimeType);
       setResult(future);
     } catch (e: any) {
       console.error(e);
@@ -145,7 +161,7 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [rounds, engineHandlers]);
+  }, [rounds, engineHandlers, imageBase64, imageMimeType]);
 
   const handleReset = useCallback(() => {
     // Reset to initial state; caller can also control via props rebuild
@@ -165,6 +181,8 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
     setCurrentRoundIndex(0);
     setResult(null);
     setError(null);
+    setImageBase64(null);
+    setImageMimeType(null);
   }, []);
 
   return (
@@ -177,6 +195,11 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
           quality score for your outcome.
         </p>
       </header>
+
+      <div>
+        <h3>Upload an image of yourself! (optional)</h3>
+        <input type="file" accept="image/*" onChange={handleImageUpload} />
+      </div>
 
       {rounds.length > 0 && (
         <>
@@ -221,7 +244,7 @@ export const SeeYourFutureApp: React.FC<SeeYourFutureAppProps> = ({
         </div>
       )}
 
-      <FutureResultView result={result} onReset={handleReset} />
+      <FutureResultView result={result} onReset={handleReset} imageBase64={imageBase64} imageMimeType={imageMimeType} />
     </div>
   );
 };
