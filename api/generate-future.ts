@@ -2,8 +2,14 @@
 // Server endpoint to generate the final future using Gemini (Google Generative AI).
 // Expects POST { rounds: QuestionRound[] }
 
-import { generateFuturePrompt } from "../src/lib/prompts";
-import { GeminiChatHandler } from "../src/lib/geminiChatHandler";
+// Import server-side prompt helper so we don't depend on src/ TS modules at runtime
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { generateFuturePrompt } from "./prompts.js";
+// Import server-side Gemini handler implemented as plain JS for Vercel runtime
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { GeminiChatHandler } from "./geminiChatHandler.js";
 import type { IncomingMessage, ServerResponse } from "http";
 import { QuestionRound } from "../src/types/future";
 

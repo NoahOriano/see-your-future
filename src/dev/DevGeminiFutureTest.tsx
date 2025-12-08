@@ -32,6 +32,36 @@ async function loadImageAsBase64(imageUrl: string): Promise<{ base64: string; mi
   });
 }
 
+// Helper to extract meaningful error messages from fetch responses
+async function getErrorMessage(response: Response, defaultMessage: string): Promise<string> {
+  let message = `${defaultMessage} (HTTP ${response.status})`;
+
+  let rawBody: string | null = null;
+
+  // Read the body once as text so we can safely inspect/parse it
+  try {
+    rawBody = await response.text();
+  } catch {
+    return message;
+  }
+
+  if (!rawBody) {
+    return message;
+  }
+
+  // Try to interpret the body as JSON with an `error` field
+  try {
+    const data = JSON.parse(rawBody) as { error?: unknown };
+    if (typeof data.error === "string") {
+      return data.error;
+    }
+  } catch {
+    // Not JSON; fall through and use raw body
+  }
+
+  return rawBody || message;
+}
+
 // ---------- Fake data to simulate your rounds ----------
 
 function buildFakeRounds(): QuestionRound[] {
@@ -217,8 +247,8 @@ export const DevGeminiFutureTest: React.FC = () => {
       });
 
       if (!describeResponse.ok) {
-        const errorData = await describeResponse.json();
-        throw new Error(errorData.error || "Failed to describe image");
+        const message = await getErrorMessage(describeResponse, "Failed to describe image");
+        throw new Error(message);
       }
 
       const describeData = await describeResponse.json();
@@ -240,8 +270,8 @@ export const DevGeminiFutureTest: React.FC = () => {
       });
 
       if (!futureResponse.ok) {
-        const errorData = await futureResponse.json();
-        throw new Error(errorData.error || "Failed to generate future");
+        const message = await getErrorMessage(futureResponse, "Failed to generate future");
+        throw new Error(message);
       }
 
       const futureData = await futureResponse.json();
@@ -272,13 +302,17 @@ export const DevGeminiFutureTest: React.FC = () => {
         body: JSON.stringify({ 
           prompt: futureResult.description,
           imageBase64,
-          imageMimeType
+          imageMimeType,
+          // Pass through the textual description we obtained from /api/describe-image
+          // so the backend can explicitly tie the subject of the photo to the
+          // generated future scene.
+          imageDescription,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate image");
+        const message = await getErrorMessage(response, "Failed to generate image");
+        throw new Error(message);
       }
 
       const data = await response.json();

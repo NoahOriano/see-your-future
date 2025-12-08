@@ -28,7 +28,15 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
     setImgError(null);
     setImgLoading(true);
     try {
-      const url = await generateImageFromFuture(description, { imageBase64, imageMimeType });
+      const url = await generateImageFromFuture(description, {
+        imageBase64,
+        imageMimeType,
+        // We don't have the textual image description here in the main app yet,
+        // but Dev/test flows (and future extensions) can pass it through so the
+        // backend can more precisely tie the subject to the future. For now,
+        // the server will still build a combined description from the future.
+        imageDescription: null,
+      });
       setImageUrl(url);
     } catch (e: unknown) {
       if (e instanceof Error) {

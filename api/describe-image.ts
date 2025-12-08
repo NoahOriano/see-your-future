@@ -1,5 +1,8 @@
 // api/describe-image.ts
-import { GeminiChatHandler } from "../src/lib/geminiChatHandler";
+// Import server-side Gemini handler implemented as plain JS for Vercel runtime
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import { GeminiChatHandler } from "./geminiChatHandler.js";
 import type { IncomingMessage, ServerResponse } from "http";
 
 interface RequestBody {
@@ -36,7 +39,8 @@ export default async function handler(req: RequestWithBody, res: ServerResponse)
   }
 
   try {
-    const handler = new GeminiChatHandler({ apiKey, modelName: "gemini-pro-vision" });
+    // Use a multimodal-capable Gemini 2.0 model (text + image) – matches the working image handler
+    const handler = new GeminiChatHandler({ apiKey, modelName: "gemini-2.0-flash-exp" });
     const prompt = "Describe this image in a few sentences. This description will be used to generate a story about the person in the image.";
     const description = await handler.sendMessage(prompt, { imageBase64, imageMimeType });
     
