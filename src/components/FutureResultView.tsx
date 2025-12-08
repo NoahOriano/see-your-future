@@ -1,7 +1,7 @@
 // src/components/FutureResultView.tsx
 import React, { useEffect, useState } from "react";
 import { FutureResult } from "../types/future";
-import { generateImageFromFuture } from "../lib/imageGeneratorHandler";
+import { generateImageFromContext } from "../lib/imageGeneratorHandler";
 import { generateImagePrompt } from "../lib/prompts";
 import { GeminiChatHandler } from "../lib/geminiChatHandler";
 
@@ -29,7 +29,7 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
         setImgError(null);
         setImgLoading(true);
         try {
-          const url = await generateImageFromFuture(prompt, imageBase64, imageMimeType ?? undefined);
+          const url = await generateImageFromContext(prompt, imageBase64, imageMimeType ?? "image/jpeg");
           setImageUrl(url);
         } catch (e: unknown) {
           setImgError(e instanceof Error ? e.message : String(e));
