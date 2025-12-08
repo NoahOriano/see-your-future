@@ -310,7 +310,7 @@ footer {
   justify-content: flex-start; /* ⬅ ensures left-justified layout */
   gap: 2rem; /* optional spacing between logo and links */
   padding: 0.5rem 1rem;
-  font-size: 20px
+  font-size: 20px;
 }
 
 .navbar ul {

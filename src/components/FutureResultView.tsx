@@ -20,6 +20,41 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
   const [imgLoading, setImgLoading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
 
+  // 🔊 NEW: Voice state
+  const [voiceLoading, setVoiceLoading] = useState(false);
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+
+  // 🔊 NEW: Generate + play voice
+  const handleGenerateVoice = async () => {
+    setVoiceError(null);
+    setVoiceLoading(true);
+
+    try {
+      const res = await fetch("/api/generate-tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: description }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Voice API Error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      if (!data.audioBase64) {
+        throw new Error("Server did not return audioBase64");
+      }
+
+      // Create a playable audio object
+      const audio = new Audio("data:audio/mpeg;base64," + data.audioBase64);
+      audio.play();
+    } catch (e: any) {
+      setVoiceError(e?.message ?? String(e));
+    } finally {
+      setVoiceLoading(false);
+    }
+  };
+
   const handleGenerateImage = async () => {
     setImgError(null);
     setImgLoading(true);
@@ -97,6 +132,7 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
       )}
 
       <div style={{ marginTop: "1rem" }}>
+        {/* 🎨 IMAGE BUTTON */}
         <button
           type="button"
           onClick={handleGenerateImage}
@@ -107,6 +143,19 @@ export const FutureResultView: React.FC<FutureResultViewProps> = ({
         </button>
         {imgError && (
           <span style={{ color: "#b00020", marginLeft: 8 }}>{imgError}</span>
+        )}
+
+        {/* 🔊 NEW — VOICE BUTTON */}
+        <button
+          type="button"
+          onClick={handleGenerateVoice}
+          disabled={voiceLoading}
+          style={{ padding: "0.5rem 1rem", marginRight: 10 }}
+        >
+          {voiceLoading ? "Generating voice..." : "Play Voice"}
+        </button>
+        {voiceError && (
+          <span style={{ color: "#b00020", marginLeft: 8 }}>{voiceError}</span>
         )}
       </div>
 

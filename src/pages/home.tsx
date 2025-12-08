@@ -89,7 +89,6 @@ const geminiConfig: ChatHandlerConfig = {
 
 const geminiHandler = new GeminiChatHandler(geminiConfig);
 
-
 function scorePrebuiltQuestion(
   q: PrebuiltQuestionConfig,
   interests: Record<QuestionCategory, number>,
