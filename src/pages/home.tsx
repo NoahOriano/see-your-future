@@ -16,6 +16,7 @@ import {
 } from "../types/engine";
 
 import prebuiltQuestionsJson from "../data/prebuiltQuestions.json";
+import Navbar from "../components/navbar";
 
 
 function buildRoundsTranscript(rounds: QuestionRound[]): string {
@@ -358,6 +359,7 @@ ${transcript}
 
   return (
     <div className="home-page">
+      <Navbar></Navbar>
       <h1>See Your Future</h1>
 
       <p>
@@ -383,6 +385,7 @@ ${transcript}
           autoRequestNextRound={true}
         />
       </div>
+    <footer></footer>
     </div>
   );
 }
