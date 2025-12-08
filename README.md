@@ -19,3 +19,10 @@ You can deploy your new Vite project with a single command from your terminal us
 ```shell
 $ vercel
 ```
+
+
+$Env:PATH = "C:\Windows\System32;" + $Env:PATH
+cmd.exe /c echo ok   
+vercel dev
+// somewhere else
+npm run dev

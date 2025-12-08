@@ -6,28 +6,36 @@ import { generateImageFromFuture } from "../lib/imageGeneratorHandler";
 interface FutureResultViewProps {
   result: FutureResult | null;
   onReset?: () => void;
+  imageBase64: string | null;
+  imageMimeType: string | null;
 }
 
 export const FutureResultView: React.FC<FutureResultViewProps> = ({
   result,
   onReset,
+  imageBase64,
+  imageMimeType,
 }) => {
-  if (!result) return null;
-
-  const { description, qualityScore, qualityLabel } = result;
-
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [imgLoading, setImgLoading] = useState(false);
   const [imgError, setImgError] = useState<string | null>(null);
+
+  if (!result) return null;
+
+  const { description, qualityScore, qualityLabel } = result;
 
   const handleGenerateImage = async () => {
     setImgError(null);
     setImgLoading(true);
     try {
-      const url = await generateImageFromFuture(description);
+      const url = await generateImageFromFuture(description, { imageBase64, imageMimeType });
       setImageUrl(url);
-    } catch (e: any) {
-      setImgError(e?.message ?? String(e));
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        setImgError(e.message);
+      } else {
+        setImgError("An unknown error occurred");
+      }
     } finally {
       setImgLoading(false);
     }

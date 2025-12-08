@@ -1,44 +1,35 @@
 // src/dev/DevGeminiFutureTest.tsx
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Question,
   QuestionRound,
   QuestionCategory,
+  FutureResult,
 } from "../types/future";
-import {
-  GeminiChatHandler,
-  ChatHandlerConfig,
-} from "../lib/geminiChatHandler";
 
-// ---------- Helper functions (same behavior as in home.tsx) ----------
+// Import the image
+import myselfImage from "./Myself.jpg";
 
-function buildRoundsTranscript(rounds: QuestionRound[]): string {
-  return rounds
-    .map((round) => {
-      const header = `Round ${round.roundNumber} (${round.source} - ${round.label})`;
-      const qas = round.questions
-        .map((q, idx) => {
-          const answerText = (q.answer ?? "").trim();
-          return [
-            `  Q${idx + 1}: ${q.prompt}`,
-            `  A${idx + 1}: ${answerText || "(no answer)"}`,
-          ].join("\n");
-        })
-        .join("\n");
-      return `${header}\n${qas}`;
-    })
-    .join("\n\n");
-}
+// ---------- Helper functions ----------
 
-function extractJsonObjectFromText(text: string): any {
-  const firstBrace = text.indexOf("{");
-  const lastBrace = text.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1 || lastBrace < firstBrace) {
-    throw new Error("No JSON object found in model response. Raw text:\n" + text);
-  }
-  const jsonStr = text.slice(firstBrace, lastBrace + 1);
-  return JSON.parse(jsonStr);
+// Convert image URL to base64
+async function loadImageAsBase64(imageUrl: string): Promise<{ base64: string; mimeType: string }> {
+  const response = await fetch(imageUrl);
+  const blob = await response.blob();
+  
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = reader.result as string;
+      // Extract base64 data (remove data:image/jpeg;base64, prefix)
+      const base64 = result.split(',')[1];
+      const mimeType = blob.type || 'image/jpeg';
+      resolve({ base64, mimeType });
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 }
 
 // ---------- Fake data to simulate your rounds ----------
@@ -172,88 +163,173 @@ function buildFakeRounds(): QuestionRound[] {
 // ---------- Actual dev test component ----------
 
 export const DevGeminiFutureTest: React.FC = () => {
-  const [rawResponse, setRawResponse] = useState<string>("");
-  const [parsedJson, setParsedJson] = useState<any | null>(null);
   const [status, setStatus] = useState<string>("Idle");
   const [error, setError] = useState<string | null>(null);
+  
+  // Image state
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
+  const [imageMimeType, setImageMimeType] = useState<string | null>(null);
+  const [imageDescription, setImageDescription] = useState<string | null>(null);
+  
+  // Future result state
+  const [futureResult, setFutureResult] = useState<FutureResult | null>(null);
+  
+  // Generated image state
+  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
+  const [imageGenerating, setImageGenerating] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+  // Load the image on mount
+  useEffect(() => {
+    const loadImage = async () => {
+      try {
+        const { base64, mimeType } = await loadImageAsBase64(myselfImage);
+        setImageBase64(base64);
+        setImageMimeType(mimeType);
+      } catch (err) {
+        console.error("Failed to load image:", err);
+        setError("Failed to load Myself.jpg image");
+      }
+    };
+    loadImage();
+  }, []);
 
-  const handleRunTest = async () => {
+  const handleGenerateFuture = async () => {
     setError(null);
-    setParsedJson(null);
-    setRawResponse("");
+    setFutureResult(null);
+    setGeneratedImageUrl(null);
+    setImageDescription(null);
     setStatus("Running...");
 
-    if (!apiKey) {
-      setError("Missing VITE_GEMINI_API_KEY in your environment.");
+    if (!imageBase64 || !imageMimeType) {
+      setError("Image not loaded yet. Please wait.");
       setStatus("Error");
       return;
     }
 
-    const config: ChatHandlerConfig = {
-      apiKey,
-      modelName: "gemini-2.5-flash",
-      systemInstruction:
-        "You are an assistant that infers plausible, grounded narratives about a person's future " +
-        "based only on their self-reported answers to life questions. You never make supernatural or " +
-        "guaranteed predictions. You talk in terms of trajectories, likely outcomes, and themes over " +
-        "the next 10–20 years. You also estimate how positive and fulfilling this future is.",
-    };
+    try {
+      // Step 1: Describe the image
+      setStatus("Describing image...");
+      const describeResponse = await fetch("/api/describe-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageBase64, imageMimeType }),
+      });
 
-    const handler = new GeminiChatHandler(config);
-    const rounds = buildFakeRounds();
-    const transcript = buildRoundsTranscript(rounds);
+      if (!describeResponse.ok) {
+        const errorData = await describeResponse.json();
+        throw new Error(errorData.error || "Failed to describe image");
+      }
 
-    const prompt = `
-You are helping generate a narrative "future" for a user based on a questionnaire.
+      const describeData = await describeResponse.json();
+      setImageDescription(describeData.description);
 
-Use ONLY the information in the questionnaire. Do NOT reveal the questions directly. 
-Instead, infer themes, directions, and likely life trajectories over the next 10–20 years.
-Avoid supernatural guarantees or exact dates. Speak in terms of tendencies, risks, and opportunities.
+      // Step 2: Generate future with image
+      setStatus("Generating future...");
+      const rounds = buildFakeRounds();
+      
+      const futureResponse = await fetch("/api/generate-future", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          rounds, 
+          imageBase64, 
+          imageMimeType,
+          imageDescription: describeData.description 
+        }),
+      });
 
-You must respond ONLY in JSON with this exact structure:
+      if (!futureResponse.ok) {
+        const errorData = await futureResponse.json();
+        throw new Error(errorData.error || "Failed to generate future");
+      }
 
-{
-  "description": "a detailed multi-paragraph narrative about the person's future",
-  "qualityScore": 0-100 number representing how positive/fulfilling the future is overall,
-  "qualityLabel": "a short qualitative label like 'Challenging', 'Balanced', 'Strong Outlook'"
-}
+      const futureData = await futureResponse.json();
+      setFutureResult({
+        description: futureData.description,
+        qualityScore: futureData.qualityScore,
+        qualityLabel: futureData.qualityLabel,
+      });
 
-Here is the questionnaire data:
+      setStatus("Success");
+    } catch (err: unknown) {
+      console.error("Generation error:", err);
+      setError(err instanceof Error ? err.message : String(err));
+      setStatus("Error");
+    }
+  };
 
-${transcript}
-`;
+  const handleGenerateImage = async () => {
+    if (!futureResult) return;
+
+    setImageError(null);
+    setImageGenerating(true);
 
     try {
-      const text = await handler.sendMessage(prompt);
-      setRawResponse(text);
+      const response = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          prompt: futureResult.description,
+          imageBase64,
+          imageMimeType
+        }),
+      });
 
-      const parsed = extractJsonObjectFromText(text);
-      setParsedJson(parsed);
-      setStatus("Success");
-    } catch (err: any) {
-      console.error("Gemini test error:", err);
-      setError(err?.message || String(err));
-      setStatus("Error");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate image");
+      }
+
+      const data = await response.json();
+      setGeneratedImageUrl(data.url);
+    } catch (err: unknown) {
+      console.error("Image generation error:", err);
+      setImageError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImageGenerating(false);
     }
   };
 
   return (
     <div style={{ padding: "1.5rem", maxWidth: 900, margin: "0 auto" }}>
-      <h1>Dev: Gemini Future Test</h1>
+      <h1>Dev: Future Generation Test</h1>
       <p>
-        This page sends a fixed questionnaire transcript to Gemini and expects a JSON
-        response with <code>description</code>, <code>qualityScore</code>, and{" "}
-        <code>qualityLabel</code>.
+        This page loads the <code>Myself.jpg</code> image, generates a future description
+        based on fake questionnaire data and the image, and displays the result with an
+        optional generated image.
       </p>
+
+      {/* Display the loaded image */}
+      <div style={{ marginBottom: "1.5rem" }}>
+        <h3>Loaded Image:</h3>
+        <img 
+          src={myselfImage} 
+          alt="Myself" 
+          style={{ 
+            maxWidth: "300px", 
+            borderRadius: 8, 
+            border: "1px solid #ddd" 
+          }} 
+        />
+        {imageBase64 && (
+          <p style={{ color: "#28a745", marginTop: "0.5rem" }}>
+            ✓ Image loaded successfully ({imageMimeType})
+          </p>
+        )}
+      </div>
 
       <button
         type="button"
-        onClick={handleRunTest}
-        style={{ padding: "0.5rem 1rem", marginBottom: "1rem" }}
+        onClick={handleGenerateFuture}
+        disabled={!imageBase64 || status === "Running..."}
+        style={{ 
+          padding: "0.5rem 1rem", 
+          marginBottom: "1rem",
+          cursor: !imageBase64 || status === "Running..." ? "not-allowed" : "pointer"
+        }}
       >
-        Run Gemini Test
+        {status === "Running..." ? "Generating..." : "Generate Future"}
       </button>
 
       <div style={{ marginBottom: "0.5rem" }}>
@@ -266,7 +342,22 @@ ${transcript}
         </div>
       )}
 
-      {parsedJson && (
+      {imageDescription && (
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "1rem",
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            background: "#f8f9fa",
+          }}
+        >
+          <h3>Image Description:</h3>
+          <p style={{ whiteSpace: "pre-wrap" }}>{imageDescription}</p>
+        </div>
+      )}
+
+      {futureResult && (
         <div
           style={{
             marginBottom: "1rem",
@@ -275,27 +366,86 @@ ${transcript}
             borderRadius: 8,
           }}
         >
-          <h2>Parsed JSON</h2>
-          <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.9rem" }}>
-{JSON.stringify(parsedJson, null, 2)}
-          </pre>
-        </div>
-      )}
+          <h2>Your Future</h2>
+          <div
+            style={{
+              padding: "1rem",
+              border: "1px solid #eee",
+              borderRadius: 8,
+              marginBottom: "1rem",
+              whiteSpace: "pre-wrap",
+              background: "#fafafa",
+            }}
+          >
+            {futureResult.description}
+          </div>
 
-      {rawResponse && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            padding: "1rem",
-            border: "1px solid #eee",
-            borderRadius: 8,
-            background: "#fafafa",
-          }}
-        >
-          <h2>Raw Response</h2>
-          <pre style={{ whiteSpace: "pre-wrap", fontSize: "0.85rem" }}>
-{rawResponse}
-          </pre>
+          <div
+            style={{
+              padding: "0.75rem 1rem",
+              borderRadius: 8,
+              background: "#f8f9fa",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "1rem",
+              flexWrap: "wrap",
+            }}
+          >
+            <div>
+              <strong>Quality Score:</strong> {futureResult.qualityScore.toFixed(1)}
+              {futureResult.qualityLabel ? ` (${futureResult.qualityLabel})` : null}
+            </div>
+
+            <div
+              style={{
+                flex: 1,
+                maxWidth: 250,
+                height: 8,
+                borderRadius: 999,
+                backgroundColor: "#e1e1e1",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.max(0, Math.min(100, futureResult.qualityScore))}%`,
+                  height: "100%",
+                  backgroundColor: "#28a745",
+                  transition: "width 0.3s ease",
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginTop: "1rem" }}>
+            <button
+              type="button"
+              onClick={handleGenerateImage}
+              disabled={imageGenerating}
+              style={{ padding: "0.5rem 1rem", marginRight: 10 }}
+            >
+              {imageGenerating ? "Generating image..." : "Generate Future Image"}
+            </button>
+            {imageError && (
+              <span style={{ color: "#b00020", marginLeft: 8 }}>{imageError}</span>
+            )}
+          </div>
+
+          {generatedImageUrl && (
+            <div style={{ marginTop: "1rem" }}>
+              <h3>Generated Future Image:</h3>
+              <img
+                src={generatedImageUrl}
+                alt="Generated future"
+                style={{ 
+                  maxWidth: "100%", 
+                  borderRadius: 8, 
+                  border: "1px solid #ddd" 
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

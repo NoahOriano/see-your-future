@@ -11,6 +11,7 @@ import {
 } from "../types/future";
 import {
   FutureEngineHandlers,
+  GenerateFutureResultContext,
   NextRoundRequestContext,
   NextRoundResponse,
 } from "../types/engine";
@@ -41,7 +42,7 @@ function buildRoundsTranscript(rounds: QuestionRound[]): string {
     .join("\n\n");
 }
 
-function extractJsonObjectFromText(text: string): any {
+function extractJsonObjectFromText(text: string): Record<string, unknown> {
   // Handles cases where the model wraps JSON in text or ```json ``` fences
   const firstBrace = text.indexOf("{");
   const lastBrace = text.lastIndexOf("}");
@@ -263,7 +264,7 @@ export default function Home() {
             questions: [question],
           };
           return { round };
-        } catch (e: any) {
+        } catch (e: unknown) {
           console.error("Failed to generate round questions via LLM:", e);
           const prompt = `Based on the user's previous answers, please generate a few open-ended questions to help them reflect deeper on their future.
 
@@ -285,13 +286,13 @@ export default function Home() {
       return { round: null };
     },
 
-    async generateFutureResult(rounds: QuestionRound[]): Promise<FutureResult> {
+    async generateFutureResult({ rounds, imageBase64, imageMimeType, imageDescription }: GenerateFutureResultContext): Promise<FutureResult> {
       // First try server-side endpoint (recommended; uses GEMINI_API_KEY on server)
       try {
         const resp = await fetch("/api/generate-future", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ rounds }),
+          body: JSON.stringify({ rounds, imageBase64, imageMimeType, imageDescription }),
         });
 
         if (resp.ok) {
@@ -315,7 +316,7 @@ export default function Home() {
       let rawText: string;
       try {
         rawText = await geminiHandler.sendMessage(prompt);
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error("Gemini error:", e);
         // Fallback simple description
         return {
@@ -330,7 +331,7 @@ export default function Home() {
       try {
         const parsed = extractJsonObjectFromText(rawText);
 
-        const description = typeof parsed.description === "string" && parsed.description.trim() ? parsed.description : rawText;
+        const description = typeof parsed.description === "string" && parsed.description.trim() ? parsed.description : rawText as string;
         const scoreNum = Number(parsed.qualityScore);
         const qualityScore = Number.isFinite(scoreNum) && scoreNum >= 0 && scoreNum <= 100 ? scoreNum : 75;
         const qualityLabel = typeof parsed.qualityLabel === "string" && parsed.qualityLabel.trim() ? parsed.qualityLabel : "Inferred";

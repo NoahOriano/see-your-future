@@ -11,6 +11,13 @@ export interface NextRoundResponse {
   round: QuestionRound | null; // null => no more rounds
 }
 
+export interface GenerateFutureResultContext {
+  rounds: QuestionRound[];
+  imageBase64: string | null;
+  imageMimeType: string | null;
+  imageDescription: string | null;
+}
+
 export interface FutureEngineHandlers {
   /**
    * Called when the user completes a round and wants to proceed
@@ -24,5 +31,5 @@ export interface FutureEngineHandlers {
    * Called when the user is done answering questions and wants to
    * generate the future description + quality score.
    */
-  generateFutureResult: (rounds: QuestionRound[]) => Promise<FutureResult>;
+  generateFutureResult: (context: GenerateFutureResultContext) => Promise<FutureResult>;
 }
