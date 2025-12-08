@@ -16,6 +16,7 @@ import {
 } from "../types/engine";
 
 import prebuiltQuestionsJson from "../data/prebuiltQuestions.json";
+import { generateFuturePrompt, generateRoundQuestionsPrompt } from "../lib/prompts";
 import Navbar from "../components/navbar";
 
 
@@ -76,17 +77,17 @@ function extractInterestsFromRound1(
   return interests;
 }
 
-  const geminiConfig: ChatHandlerConfig = {
-    apiKey: import.meta.env.VITE_GEMINI_API_KEY, // make sure this is set
-    modelName: "gemini-2.5-flash",
-    systemInstruction:
-      "You are an assistant that infers plausible, grounded narratives about a person's future " +
-      "based only on their self-reported answers to life questions. You never make supernatural or " +
-      "guaranteed predictions. You talk in terms of trajectories, likely outcomes, and themes over " +
-      "the next 10–20 years. You also estimate how positive and fulfilling this future is.",
-  };
+const geminiConfig: ChatHandlerConfig = {
+  apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+  modelName: "gemini-2.5-flash",
+  systemInstruction:
+    "You are an assistant that infers plausible, grounded narratives about a person's future " +
+    "based only on their self-reported answers to life questions. You never make supernatural or " +
+    "guaranteed predictions. You talk in terms of trajectories, likely outcomes, and themes over " +
+    "the next 10–20 years. You also estimate how positive and fulfilling this future is.",
+};
 
-  const geminiHandler = new GeminiChatHandler(geminiConfig);
+const geminiHandler = new GeminiChatHandler(geminiConfig);
 
 
 function scorePrebuiltQuestion(
@@ -188,47 +189,21 @@ export default function Home() {
       sliderMax: 5,
       sliderStep: 1,
     },
-    {
-      id: "interest_personal",
-      roundNumber: 1,
-      prompt:
-        "How strongly are you drawn to personal growth, identity, and meaning?",
-      type: "slider",
-      category: "personal",
-      sliderMin: 0,
-      sliderMax: 5,
-      sliderStep: 1,
-    },
   ];
 
-// Raw prebuilt questions from JSON (no round numbers here)
-const prebuiltQuestionBank: PrebuiltQuestionConfig[] =
-  prebuiltQuestionsJson as unknown as PrebuiltQuestionConfig[];
-
+  // Engine handlers: prefer server endpoints, fall back to client logic when needed
   const engineHandlers: FutureEngineHandlers = {
-    async requestNextRound(
-      context: NextRoundRequestContext
-    ): Promise<NextRoundResponse> {
-      const { requestedRoundNumber, previousRounds } = context;
-
-      // ---------- Round 2: ONLY round using imported questions ----------
+    async requestNextRound({ previousRounds, requestedRoundNumber }: NextRoundRequestContext): Promise<NextRoundResponse> {
+      // Round 2: pick best prebuilt questions based on Round 1
       if (requestedRoundNumber === 2) {
-        const round1 = previousRounds.find((r) => r.roundNumber === 1);
+        const round1 = previousRounds[0];
         const age = parseAgeFromRound1(round1);
         const interests = extractInterestsFromRound1(round1);
 
-        const bestConfigs = selectBestPrebuiltQuestions(
-          prebuiltQuestionBank,
-          age,
-          interests,
-          10
-        );
+        const bestConfigs = selectBestPrebuiltQuestions(prebuiltQuestionsJson as PrebuiltQuestionConfig[], age, interests, 10);
 
         // Wrap configs into actual Questions for this specific round
-        const roundQuestions: Question[] = bestConfigs.map((cfg) => ({
-          ...cfg,
-          roundNumber: 2,
-        }));
+        const roundQuestions: Question[] = bestConfigs.map((cfg) => ({ ...cfg, roundNumber: 2 }));
 
         const round: QuestionRound = {
           roundNumber: 2,
@@ -240,70 +215,83 @@ const prebuiltQuestionBank: PrebuiltQuestionConfig[] =
         return { round };
       }
 
-      // ---------- Round 3+ : generated questions only ----------
-      if (requestedRoundNumber === 3) {
-        const lastRound =
-          previousRounds.length > 0
-            ? previousRounds[previousRounds.length - 1]
-            : undefined;
 
-        const snippet = lastRound?.questions[0]?.answer?.slice(0, 40) ?? "";
+      // Round 3+ : generated questions using LLM (when available locally)
+      if (requestedRoundNumber >= 3) {
+        // Build a short transcript and ask the LLM to return a JSON array of question objects.
+        const transcript = buildRoundsTranscript(previousRounds);
 
-        const generatedQuestions: Question[] = [
-          {
-            id: "future_doubts",
-            roundNumber: 3,
-            prompt: `What concerns do you have about moving toward "${snippet}..."?`,
-            type: "text",
-            category: "personal",
-          },
-          {
-            id: "support_network",
-            roundNumber: 3,
-            prompt:
-              "How strong is your current support network (friends, family, mentors)?",
-            type: "select",
-            category: "relationships",
-            options: ["Weak", "Average", "Strong"],
-          },
-        ];
+        // If Gemini key isn't configured for client-side, fall back to simple static questions
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+        if (!apiKey) {
+          const lastRound = previousRounds.length > 0 ? previousRounds[previousRounds.length - 1] : undefined;
+          const snippet = lastRound?.questions[0]?.answer?.slice(0, 40) ?? "";
 
-        const round: QuestionRound = {
-          roundNumber: 3,
-          label: "Round 3: Deeper Reflections",
-          source: "generated",
-          questions: generatedQuestions,
-        };
+          const generatedQuestions: Question[] = [
+            { id: "future_doubts", roundNumber: requestedRoundNumber, prompt: `What concerns do you have about moving toward "${snippet}..."?`, type: "text", category: "personal" },
+            { id: "support_network", roundNumber: requestedRoundNumber, prompt: "How strong is your current support network (friends, family, mentors)?", type: "select", category: "relationships", options: ["Weak", "Average", "Strong"] },
+          ];
 
-        return { round };
+          const round: QuestionRound = { roundNumber: requestedRoundNumber, label: `Round ${requestedRoundNumber}: Generated Questions`, source: "generated", questions: generatedQuestions };
+          return { round };
+        }
+
+        // Use Gemini client-side if a key is present
+        const prompt = generateRoundQuestionsPrompt(transcript, requestedRoundNumber);
+
+        try {
+          const raw = await geminiHandler.sendMessage(prompt);
+          const arr = JSON.parse(raw.trim());
+          if (!Array.isArray(arr) || arr.length === 0) throw new Error("LLM did not return a question array");
+
+          const questions: Question[] = arr.map((q: any, idx: number) => ({ id: q.id ?? `g_${requestedRoundNumber}_${idx}`, roundNumber: requestedRoundNumber, prompt: q.prompt ?? String(q.text ?? ""), type: q.type ?? "text", category: q.category, options: Array.isArray(q.options) ? q.options : undefined }));
+
+          const round: QuestionRound = { roundNumber: requestedRoundNumber, label: `Round ${requestedRoundNumber}: Generated Questions`, source: "generated", questions };
+          return { round };
+        } catch (e: any) {
+          console.error("Failed to generate round questions via LLM:", e);
+          const lastRound = previousRounds.length > 0 ? previousRounds[previousRounds.length - 1] : undefined;
+          const snippet = lastRound?.questions[0]?.answer?.slice(0, 40) ?? "";
+
+          const generatedQuestions: Question[] = [
+            { id: "future_doubts", roundNumber: requestedRoundNumber, prompt: `What concerns do you have about moving toward "${snippet}..."?`, type: "text", category: "personal" },
+            { id: "support_network", roundNumber: requestedRoundNumber, prompt: "How strong is your current support network (friends, family, mentors)?", type: "select", category: "relationships", options: ["Weak", "Average", "Strong"] },
+          ];
+
+          const round: QuestionRound = { roundNumber: requestedRoundNumber, label: `Round ${requestedRoundNumber}: Generated Questions`, source: "generated", questions: generatedQuestions };
+          return { round };
+        }
       }
 
-      // Past Round 3 → no more rounds; generate the final future
       return { round: null };
     },
 
     async generateFutureResult(rounds: QuestionRound[]): Promise<FutureResult> {
+      // First try server-side endpoint (recommended; uses GEMINI_API_KEY on server)
+      try {
+        const resp = await fetch("/api/generate-future", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rounds }),
+        });
+
+        if (resp.ok) {
+          const json = await resp.json();
+          if (json && typeof json.description === "string") {
+            return {
+              description: json.description,
+              qualityScore: typeof json.qualityScore === "number" ? json.qualityScore : 75,
+              qualityLabel: typeof json.qualityLabel === "string" ? json.qualityLabel : "Inferred",
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("Server generate-future failed, falling back to client logic", e);
+      }
+
+      // Fallback: client-side behavior (uses client Gemini if configured)
       const transcript = buildRoundsTranscript(rounds);
-
-      const prompt = `
-You are helping generate a narrative "future" for a user based on a questionnaire.
-
-Use ONLY the information in the questionnaire. Do NOT reveal the questions directly. 
-Instead, infer themes, directions, and likely life trajectories over the next 10–20 years.
-Avoid supernatural guarantees or exact dates. Speak in terms of tendencies, risks, and opportunities.
-
-You must respond ONLY in JSON with this exact structure:
-
-{
-  "description": "a detailed multi-paragraph narrative about the person's future",
-  "qualityScore": 0-100 number representing how positive/fulfilling the future is overall,
-  "qualityLabel": "a short qualitative label like 'Challenging', 'Balanced', 'Strong Outlook'"
-}
-
-Here is the questionnaire data:
-
-${transcript}
-`;
+      const prompt = generateFuturePrompt(transcript);
 
       let rawText: string;
       try {
@@ -323,36 +311,15 @@ ${transcript}
       try {
         const parsed = extractJsonObjectFromText(rawText);
 
-        const description =
-          typeof parsed.description === "string" && parsed.description.trim()
-            ? parsed.description
-            : rawText;
-
+        const description = typeof parsed.description === "string" && parsed.description.trim() ? parsed.description : rawText;
         const scoreNum = Number(parsed.qualityScore);
-        const qualityScore =
-          Number.isFinite(scoreNum) && scoreNum >= 0 && scoreNum <= 100
-            ? scoreNum
-            : 75;
+        const qualityScore = Number.isFinite(scoreNum) && scoreNum >= 0 && scoreNum <= 100 ? scoreNum : 75;
+        const qualityLabel = typeof parsed.qualityLabel === "string" && parsed.qualityLabel.trim() ? parsed.qualityLabel : "Inferred";
 
-        const qualityLabel =
-          typeof parsed.qualityLabel === "string" && parsed.qualityLabel.trim()
-            ? parsed.qualityLabel
-            : "Inferred";
-
-        return {
-          description,
-          qualityScore,
-          qualityLabel,
-        };
+        return { description, qualityScore, qualityLabel };
       } catch (e) {
         console.error("Failed to parse Gemini JSON:", e, rawText);
-
-        // If parsing fails, just use the whole response as the description
-        return {
-          description: rawText,
-          qualityScore: 75,
-          qualityLabel: "Unstructured Response",
-        };
+        return { description: rawText, qualityScore: 75, qualityLabel: "Unstructured Response" };
       }
     },
   };
