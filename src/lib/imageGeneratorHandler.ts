@@ -6,10 +6,15 @@ interface FutureImageOptions {
   imageDescription?: string | null;
 }
 
+interface FutureImageResult {
+  url: string;
+  prompt?: string | null;
+}
+
 export async function generateImageFromFuture(
   prompt: string,
   options?: FutureImageOptions
-): Promise<string> {
+): Promise<FutureImageResult> {
   if (typeof window !== "undefined" && typeof fetch === "function") {
     const resp = await fetch("/api/generate-image", {
       method: "POST",
@@ -24,7 +29,15 @@ export async function generateImageFromFuture(
 
     if (resp.ok) {
       const json = await resp.json();
-      if (json?.url) return json.url;
+      if (json?.url) {
+        return {
+          url: json.url as string,
+          prompt:
+            typeof json.prompt === "string" && json.prompt.trim().length > 0
+              ? (json.prompt as string)
+              : null,
+        };
+      }
     } else {
       const error = await resp.json();
       throw new Error(error.error || "Image generation failed");
